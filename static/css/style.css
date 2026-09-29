@@ -1459,14 +1459,27 @@ html[data-theme="dark"] .contact-card--wa .contact-card__icon { color: #4BE08A; 
     position: absolute; top: 100%; left: 0; right: 0;
     flex-direction: column; align-items: stretch; gap: 0;
     margin: 0;
-    padding: .5rem 1.1rem 1rem;
+    padding: 0 1.1rem;
     background: var(--surface);
+    border-bottom: 0 solid transparent;
+    box-shadow: none;
+    max-height: 0; overflow: hidden;
+    visibility: hidden;
+    transition: max-height .3s var(--ease), padding .3s var(--ease),
+                box-shadow .3s var(--ease), border-color .3s var(--ease),
+                visibility 0s linear .3s;
+  }
+  .nav.is-open {
+    max-height: min(460px, 72vh);
+    overflow-y: auto;
+    padding: .5rem 1.1rem 1rem;
     border-bottom: 1px solid var(--border);
     box-shadow: var(--shadow-lg);
-    max-height: 0; overflow: hidden;
-    transition: max-height .3s var(--ease), padding .3s var(--ease);
+    visibility: visible;
+    transition: max-height .3s var(--ease), padding .3s var(--ease),
+                box-shadow .3s var(--ease), border-color .3s var(--ease),
+                visibility 0s linear 0s;
   }
-  .nav.is-open { max-height: 460px; }
   .nav__link { padding: .7rem .4rem; border-bottom: 1px solid var(--border); border-radius: 0; }
   .nav__link.is-active::after { display: none; }
   .nav__link.is-active { border-left: 3px solid var(--red); padding-left: .7rem; }
@@ -1484,6 +1497,10 @@ html[data-theme="dark"] .contact-card--wa .contact-card__icon { color: #4BE08A; 
   .tool-hero__inner { flex-direction: column; }
   .footer__bottom-inner { justify-content: center; text-align: center; }
   .ticker__label small { display: none; }
+  /* keep the top bar on one line — phone + WhatsApp are the useful actions */
+  .topbar__owner .topbar__link[href^="mailto:"] { display: none; }
+  .topbar__owner .topbar__link[href^="mailto:"] + .topbar__sep { display: none; }
+  .topbar__inner { gap: .5rem; }
 }
 
 @media (max-width: 420px) {
