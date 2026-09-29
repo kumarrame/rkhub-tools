@@ -246,7 +246,9 @@ html[data-theme="dark"] .eyebrow { color: var(--amber); }
 }
 
 .brand { display: inline-flex; align-items: center; gap: .7rem; flex: 0 0 auto; }
-.brand__logo { display: grid; place-items: center; }
+.brand__logo { display: grid; place-items: center; line-height: 0; }
+.brand__logo picture { display: block; line-height: 0; }
+.brand__logo img { display: block; max-width: 100%; height: auto; }
 .brand__text { display: flex; flex-direction: column; line-height: 1.1; }
 .brand__name { font-size: 1.06rem; font-weight: 800; letter-spacing: -.02em; }
 .brand__badge {
@@ -497,6 +499,12 @@ html[data-theme="dark"] .theme-toggle__thumb .ico--moon { display: block; }
     linear-gradient(180deg, var(--surface), var(--bg));
 }
 .hero__inner { max-width: 860px; text-align: center; }
+.hero__brand { display: flex; justify-content: center; margin: 0 0 1.1rem; }
+.hero__brand .brand__logo {
+  box-shadow: 0 10px 30px rgba(15, 41, 66, .22), 0 0 0 1px rgba(15, 41, 66, .08);
+  border-radius: 22%;
+}
+.hero__brand .brand__logo img { border-radius: 22%; }
 .hero__eyebrow {
   display: inline-block;
   margin: 0 0 .9rem;

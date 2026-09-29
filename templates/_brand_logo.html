@@ -1,0 +1,35 @@
+{#
+  RKHUB brand logo.
+
+  The artwork is a detailed crest, so it ships at several sizes. Callers pass
+  the CSS display size in px; the macro snaps up to the nearest generated
+  1x, 2x and 3x files so we never emit a URL that does not exist.
+
+    display 42px -> 64 (1x)  84 (2x)  128 (3x)
+    display 40px -> 64 (1x)  84 (2x)  128 (3x)
+    display 84px -> 84 (1x)  168 (2x) 256 (3x)
+
+  The 3x tier matters: a 2x-only srcset leaves the logo soft on the ~3x
+  density phones most CSC users own, which is exactly the detail that makes
+  this logo look cheap.
+
+  WebP is offered first (about half the bytes of the PNG at equal quality)
+  and the PNG is the fallback. width/height are always emitted so the navbar
+  never reflows while the image loads.
+#}
+{%- macro brand_logo(size=42, name='rkhub-logo') -%}
+{%- set ns = namespace(one=512, two=512, three=512) -%}
+{%- for px in [64, 84, 128, 168, 256, 512] -%}
+{%- if ns.one == 512 and px >= size %}{% set ns.one = px %}{% endif -%}
+{%- if ns.two == 512 and px >= size * 2 %}{% set ns.two = px %}{% endif -%}
+{%- if ns.three == 512 and px >= size * 3 %}{% set ns.three = px %}{% endif -%}
+{%- endfor -%}
+<span class="brand__logo" aria-hidden="true">
+  <picture>
+    <source type="image/webp" srcset="{{ url_for('static', filename='images/' ~ name ~ '-' ~ ns.one ~ '.webp') }} 1x, {{ url_for('static', filename='images/' ~ name ~ '-' ~ ns.two ~ '.webp') }} 2x, {{ url_for('static', filename='images/' ~ name ~ '-' ~ ns.three ~ '.webp') }} 3x">
+    <img src="{{ url_for('static', filename='images/' ~ name ~ '-' ~ ns.one ~ '.png') }}"
+         srcset="{{ url_for('static', filename='images/' ~ name ~ '-' ~ ns.one ~ '.png') }} 1x, {{ url_for('static', filename='images/' ~ name ~ '-' ~ ns.two ~ '.png') }} 2x, {{ url_for('static', filename='images/' ~ name ~ '-' ~ ns.three ~ '.png') }} 3x"
+         width="{{ size }}" height="{{ size }}" alt="" decoding="async">
+  </picture>
+</span>
+{%- endmacro -%}

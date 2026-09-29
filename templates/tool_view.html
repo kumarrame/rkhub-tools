@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+{% from "_brand_logo.html" import brand_logo %}<!DOCTYPE html>
 <html lang="hi" data-theme="light">
 <head>
   <meta charset="UTF-8" />
@@ -7,7 +7,9 @@
   <meta name="theme-color" content="#0F2942" />
   <title>{% if notfound %}404 — Page Not Found{% else %}{{ tool.name }} — {{ SITE.name }}{% endif %}</title>
 
-  <link rel="icon" href="{{ url_for('static', filename='images/logo.svg') }}" type="image/svg+xml" />
+  <link rel="icon" href="{{ url_for('static', filename='images/rkhub-logo-64.png') }}" sizes="64x64" type="image/png" />
+<link rel="icon" href="{{ url_for('static', filename='images/rkhub-logo.svg') }}" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='images/rkhub-logo-168.png') }}" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -34,21 +36,7 @@
   <header class="navbar" id="navbar">
     <div class="container navbar__inner">
       <a class="brand" href="{{ url_for('index') }}">
-        <span class="brand__logo" aria-hidden="true">
-          <svg viewBox="0 0 128 128" width="42" height="42">
-            <defs>
-              <linearGradient id="brandTri" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#FF9933" />
-                <stop offset="50%" stop-color="#FFFFFF" />
-                <stop offset="100%" stop-color="#138808" />
-              </linearGradient>
-            </defs>
-            <rect x="4" y="4" width="120" height="120" rx="28" fill="#0F2942" />
-            <rect x="4" y="4" width="120" height="120" rx="28" fill="none" stroke="url(#brandTri)" stroke-width="6" />
-            <text x="64" y="80" text-anchor="middle" font-family="Arial, sans-serif"
-                  font-size="42" font-weight="800" fill="#FFFFFF" letter-spacing="1">RK</text>
-          </svg>
-        </span>
+        {{ brand_logo(42) }}
         <span class="brand__text">
           <span class="brand__name">{{ SITE.name }}</span>
           <span class="brand__badge">{{ SITE.badge }}</span>
@@ -767,14 +755,7 @@
     <div class="container footer__grid">
       <div class="footer__col">
         <span class="brand brand--footer">
-          <span class="brand__logo" aria-hidden="true">
-            <svg viewBox="0 0 128 128" width="40" height="40">
-              <rect x="4" y="4" width="120" height="120" rx="28" fill="#0F2942" />
-              <rect x="4" y="4" width="120" height="120" rx="28" fill="none" stroke="#FF9933" stroke-width="6" />
-              <text x="64" y="80" text-anchor="middle" font-family="Arial, sans-serif"
-                    font-size="42" font-weight="800" fill="#FFFFFF">RK</text>
-            </svg>
-          </span>
+          {{ brand_logo(40) }}
           <span class="brand__text">
             <span class="brand__name">{{ SITE.name }}</span>
             <span class="brand__badge">{{ SITE.badge }}</span>
