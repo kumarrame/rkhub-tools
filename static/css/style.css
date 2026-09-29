@@ -797,6 +797,63 @@ html[data-theme="dark"] .tool-hero__hi { color: var(--amber); }
 }
 .ws-hint { margin: .8rem 0 0; font-size: .78rem; color: var(--text-faint); }
 
+/* File-error / busy notice ---------------------------------------------- */
+
+.ws-notice {
+  display: flex; align-items: flex-start; gap: .7rem;
+  margin: 1.4rem 1.4rem 0;
+  padding: .95rem 1.05rem;
+  border: 1px solid var(--red);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  background: rgba(211, 47, 47, .07);
+  color: var(--text);
+  font-size: .9rem;
+  line-height: 1.5;
+}
+.ws-notice[hidden] { display: none; }
+
+.ws-notice__ico {
+  flex: 0 0 auto;
+  display: grid; place-items: center;
+  width: 1.5rem; height: 1.5rem;
+  border-radius: 50%;
+  background: var(--red);
+  color: #fff;
+  font-size: .95rem; font-weight: 700; line-height: 1;
+}
+.ws-notice__body { min-width: 0; flex: 1 1 auto; }
+.ws-notice__title { margin: 0 0 .2rem; font-weight: 700; font-size: .95rem; }
+.ws-notice__msg { margin: 0; color: var(--text-soft); }
+.ws-notice__msg strong { color: var(--text); }
+.ws-notice__close {
+  flex: 0 0 auto;
+  appearance: none; border: 0; background: transparent;
+  color: var(--text-faint); cursor: pointer;
+  font-size: 1.25rem; line-height: 1;
+  padding: .1rem .25rem; border-radius: 6px;
+}
+.ws-notice__close:hover { color: var(--text); background: var(--surface-2); }
+
+/* busy variant */
+.ws-notice--busy { border-color: var(--amber); background: rgba(255, 193, 7, .10); }
+.ws-notice--busy .ws-notice__ico { background: transparent; color: var(--amber); }
+.ws-notice--busy .ws-notice__ico::before {
+  content: "\21BB";
+  display: block;
+  font-size: 1.15rem;
+  line-height: 1.5rem;
+  animation: wsSpin 1s linear infinite;
+}
+@keyframes wsSpin { to { transform: rotate(360deg); } }
+
+.ws-notice--info { border-color: var(--navy); background: rgba(0, 60, 120, .06); }
+.ws-notice--info .ws-notice__ico { background: var(--navy); }
+
+@media (max-width: 560px) {
+  .ws-notice { margin: 1rem 1rem 0; padding: .85rem .9rem; font-size: .86rem; }
+}
+
 .ws-panel[hidden] { display: none; }
 .ws-panel {
   display: grid;

@@ -58,22 +58,163 @@
     }, type || "image/png", quality);
   }
 
+  /* escape text before it goes anywhere near innerHTML (filenames are
+     user-controlled, so this is not optional) */
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  /* Look at the first bytes so we can explain *why* a file was refused
+     instead of failing silently. HEIC/HEIF is the usual culprit on phones. */
+  function sniffFormat(head) {
+    if (!head || head.length < 12) return "";
+    var b = function (i) { return head.charCodeAt(i); };
+    var ascii = function (s, i) {
+      for (var k = 0; k < s.length; k++) if (b(i + k) !== s.charCodeAt(k)) return false;
+      return true;
+    };
+    if (b(0) === 0xFF && b(1) === 0xD8) return "jpeg";
+    if (ascii("\x89PNG", 0)) return "png";
+    if (ascii("GIF8", 0)) return "gif";
+    if (ascii("BM", 0)) return "bmp";
+    if (ascii("WEBP", 8)) return "webp";
+    if (ascii("ftyp", 4)) {
+      if (ascii("heic", 8) || ascii("heix") || ascii("hevc") ||
+          ascii("heim") || ascii("heis") || ascii("hevm") || ascii("mif1") ||
+          ascii("msf1")) return "heic";
+      if (ascii("avif", 8) || ascii("avis", 8)) return "avif";
+      if (ascii("qt  ", 4)) return "mov";
+    }
+    if (ascii("RIFF", 0) && ascii("WEBP", 8)) return "webp";
+    if (ascii("%PDF", 0)) return "pdf";
+    if (ascii("PK", 0) && (ascii("x", 0) || b(2) === 3 || b(2) === 5 || b(2) === 7)) return "zip";
+    if (b(0) === 0x00 && b(1) === 0x00 && b(2) === 0x00 && b(3) === 0x18) return "mp4";
+    return "";
+  }
+
+  function readHead(file, n) {
+    return new Promise(function (resolve) {
+      try {
+        var fr = new FileReader();
+        fr.onload = function () { resolve(String(fr.result || "")); };
+        fr.onerror = function () { resolve(""); };
+        fr.onabort = function () { resolve(""); };
+        fr.readAsBinaryString(file.slice(0, n));
+      } catch (e) { resolve(""); }
+    });
+  }
+
+  /* A short, actionable sentence for the formats phones actually produce. */
+  function unreadableMessage(file, format) {
+    var name = esc((file && file.name) || "Yeh file");
+    var ext = (((file && file.name) || "").split(".").pop() || "").toLowerCase();
+    if (format === "heic" || /^(heic|heif|hif)$/.test(ext)) {
+      return "<strong>" + name + "</strong> HEIC/HEIF format mein hai, jo yeh browser padh nahi paya. " +
+             "iPhone par <strong>Settings &rarr; Camera &rarr; Formats = Most Compatible</strong> karke " +
+             "dobaara try karein, ya photo ko JPG mein karke dobara choose karein.";
+    }
+    if (format === "avif" || ext === "avif") {
+      return "<strong>" + name + "</strong> AVIF format padha nahi ja saka. " +
+             "Photo ko JPG ya PNG mein convert karke dobara try karein.";
+    }
+    if (format === "mov" || format === "mp4") {
+      return "<strong>" + name + "</strong> ek video file hai. " +
+             "Sirf photo (JPG/PNG/WebP) choose karein — video se photo nahi ban sakti.";
+    }
+    if (format === "pdf") {
+      return "<strong>" + name + "</strong> ek PDF hai. Is tool ke liye photo (image) chahiye, PDF nahi.";
+    }
+    if (format) {
+      return "<strong>" + name + "</strong> (" + esc(format.toUpperCase()) +
+             ") is browser mein support nahi hai. JPG ya PNG photo try karein.";
+    }
+    return "<strong>" + name + "</strong> padhi nahi ja saki. File corrupt ho sakti hai ya " +
+           "iska format browser support nahi karta. Doosri JPG/PNG photo try karein.";
+  }
+
+  function imageError(file, format, fallback) {
+    var err = new Error(fallback || "Image could not be read");
+    err.code = "image-unreadable";
+    err.userMessage = unreadableMessage(file, format);
+    return err;
+  }
+
+  /* Cheap header-only check so a bad file is reported when it is chosen,
+     not 30 seconds later in the middle of a PDF export. */
+  function precheckFiles(list) {
+    return Promise.all(list.map(function (f) {
+      return readHead(f, 16).then(function (head) {
+        return { file: f, format: sniffFormat(head) };
+      });
+    }));
+  }
+
+  /* Decode an image. Never fails silently: on failure we work out *why*
+     (sniff the bytes, then ask createImageBitmap as a second opinion) and
+     reject with a message that can be shown straight to the user. */
   function readImage(file) {
     return new Promise(function (resolve, reject) {
+      if (!file) {
+        reject(imageError(null, "", "No file was received"));
+        return;
+      }
+
       var url = URL.createObjectURL(file);
+      var settled = false;
       var img = new Image();
-      img.onload = function () { resolve({ img: img, url: url }); };
-      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error("Image load failed")); };
+
+      function cleanup() { URL.revokeObjectURL(url); }
+
+      img.onload = function () {
+        if (settled) return;
+        settled = true;
+        if (!img.naturalWidth || !img.naturalHeight) {
+          cleanup();
+          reject(imageError(file, "", "Decoded image had no size"));
+          return;
+        }
+        resolve({ img: img, url: url });
+      };
+
+      img.onerror = function () {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        // Work out what went wrong so the user gets a useful message.
+        readHead(file, 16).then(function (head) {
+          var format = sniffFormat(head);
+          // second opinion: if the browser cannot even make a bitmap out of
+          // it, the file really is unreadable here.
+          if (window.createImageBitmap) {
+            createImageBitmap(file).then(function (bmp) {
+              if (bmp.close) bmp.close();
+              reject(imageError(file, format, "Image could not be displayed"));
+            })["catch"](function () {
+              reject(imageError(file, format, "Image could not be decoded"));
+            });
+          } else {
+            reject(imageError(file, format, "Image could not be decoded"));
+          }
+        })["catch"](function () {
+          reject(imageError(file, "", "Image could not be decoded"));
+        });
+      };
+
       img.src = url;
     });
   }
+
 
   function readBuffer(file) {
     return new Promise(function (resolve, reject) {
       var fr = new FileReader();
       fr.onload = function () { resolve(fr.result); };
-      fr.onerror = function () { reject(fr.error); };
-      fr.readAsArrayBuffer(file);
+      fr.onerror = function () { reject(fileError(file, "File padhi nahi ja saki.")); };
+      fr.onabort = function () { reject(fileError(file, "File read cancel ho gayi.")); };
+      try { fr.readAsArrayBuffer(file); }
+      catch (e) { reject(fileError(file, "File padhi nahi ja saki.")); }
     });
   }
 
@@ -81,8 +222,10 @@
     return new Promise(function (resolve, reject) {
       var fr = new FileReader();
       fr.onload = function () { resolve(fr.result); };
-      fr.onerror = function () { reject(fr.error); };
-      fr.readAsDataURL(file);
+      fr.onerror = function () { reject(fileError(file, "File padhi nahi ja saki.")); };
+      fr.onabort = function () { reject(fileError(file, "File read cancel ho gayi.")); };
+      try { fr.readAsDataURL(file); }
+      catch (e) { reject(fileError(file, "File padhi nahi ja saki.")); }
     });
   }
 
@@ -120,6 +263,94 @@
   function show(el) { if (el) el.hidden = false; }
   function hide(el) { if (el) el.hidden = true; }
 
+  /* ---- user-visible notice --------------------------------------------
+     Every file tool routes its failures through here, so a problem the user
+     can see is always shown instead of the panel silently never opening. */
+
+  function fileError(file, plain) {
+    var err = new Error(plain || "File could not be read");
+    err.code = "file-unreadable";
+    err.userMessage = "<strong>" + esc((file && file.name) || "Yeh file") + "</strong> — " +
+                      esc(plain || "padhi nahi ja saki.");
+    return err;
+  }
+
+  function noticeEl() { return document.getElementById("wsNotice"); }
+
+  function clearNotice() {
+    var el = noticeEl();
+    if (el) { el.hidden = true; el.innerHTML = ""; }
+  }
+
+  function showNotice(title, html, kind) {
+    var el = noticeEl();
+    if (!el) {
+      if (window.console) console.error("[RKHUB] " + title + " — " + html);
+      return;
+    }
+    var cls = "ws-notice" + (kind ? " ws-notice--" + kind : "");
+    el.className = cls;
+    el.innerHTML =
+      '<span class="ws-notice__ico" aria-hidden="true"></span>' +
+      '<span class="ws-notice__body">' +
+        '<p class="ws-notice__title"></p>' +
+        '<p class="ws-notice__msg"></p>' +
+      '</span>' +
+      '<button class="ws-notice__close" type="button" aria-label="Band karein">&times;</button>';
+    el.querySelector(".ws-notice__title").textContent = title;
+    el.querySelector(".ws-notice__msg").innerHTML = html;
+    el.querySelector(".ws-notice__close").addEventListener("click", clearNotice);
+    el.hidden = false;
+  }
+
+  function showBusy(text) {
+    showNotice("Processing…", esc(text || "Photo padhi ja rahi hai — badi photo me thoda waqt lagta hai."), "busy");
+  }
+
+  /* single place every engine's failure lands */
+  function reportFailure(err) {
+    var msg = (err && err.userMessage) ||
+              esc((err && err.message) ? err.message : "Unknown error");
+    if (err && typeof err === "object") err.__rkhubReported = true;
+    showNotice("Kaam poora nahi hua / Could not finish", msg);
+    if (window.console) console.error("[RKHUB]", err);
+  }
+
+  /* Wrap a file handler so decode errors always reach the user. */
+  function handleFiles(onFiles, busyText) {
+    return function (files) {
+      // a change event with nothing in it just means the picker was
+      // cancelled — that is not an error, so stay quiet
+      if (!files || !files.length) return;
+      clearNotice();
+      var list = files;
+      var busyTimer = setTimeout(function () { showBusy(busyText); }, 250);
+      var done = function () { clearTimeout(busyTimer); clearNotice(); };
+      try {
+        var p = onFiles(list);
+        if (p && typeof p["catch"] === "function") {
+          p.then(done)["catch"](function (err) {
+            clearTimeout(busyTimer);
+            reportFailure(err);
+          });
+        } else {
+          done();
+        }
+      } catch (err) {
+        clearTimeout(busyTimer);
+        reportFailure(err);
+      }
+    };
+  }
+
+  /* nothing may fail silently, even code paths we did not touch */
+  window.addEventListener("unhandledrejection", function (e) {
+    var reason = e && e.reason;
+    // ignore anything that already reported itself
+    if (reason && reason.__rkhubReported) return;
+    reportFailure(reason);
+  });
+
   function panelFor(slug) {
     return root.querySelector('[data-panel="' + slug + '"]');
   }
@@ -136,10 +367,21 @@
 
     if (accept) input.setAttribute("accept", accept);
 
+    // every file a user hands us goes through the guard, so a decode
+    // failure can never leave the panel silently closed again
+    var receive = handleFiles(onFiles);
+
     pick.addEventListener("click", function () { input.click(); });
 
     input.addEventListener("change", function () {
-      if (input.files && input.files.length) onFiles(input.files);
+      // copy the FileList out *before* clearing the input, otherwise
+      // input.value = "" empties the very list we were about to read
+      var picked = input.files && input.files.length
+        ? Array.prototype.slice.call(input.files)
+        : null;
+      if (picked) receive(picked);
+      // let the user pick the same file again after a failure
+      input.value = "";
     });
 
     if (!drop) return;
@@ -160,7 +402,7 @@
     });
     drop.addEventListener("drop", function (e) {
       var files = e.dataTransfer && e.dataTransfer.files;
-      if (files && files.length) onFiles(files);
+      if (files && files.length) receive(Array.prototype.slice.call(files));
     });
 
     // Prevent the browser from navigating away when a file is dropped
@@ -229,7 +471,7 @@
     }
 
     initFileInput("image/*", function (files) {
-      readImage(files[0]).then(function (r) {
+      return readImage(files[0]).then(function (r) {
         current = r.img;
         show(panel);
         hide($("dropZone"));
@@ -280,17 +522,30 @@
     function setStat(id, val) { var e = $(id); if (e) e.textContent = val; }
 
     initFileInput("application/pdf", function (files) {
-      pdfFile = files[0];
-      show(panel);
-      setStat("pcOrig", fmtBytes(pdfFile.size));
-      setStat("pcNew", "—");
-      setStat("pcSaved", "—");
-      setStat("pcPages", "—");
-      if (btn) btn.disabled = false;
-      if (drop) {
-        var t = drop.querySelector(".ws-drop__sub");
-        if (t) t.textContent = pdfFile.name + " — " + fmtBytes(pdfFile.size);
-      }
+      var picked = files[0];
+      return readHead(picked, 16).then(function (head) {
+        var format = sniffFormat(head);
+        if (format && format !== "pdf") {
+          var err = new Error("Not a PDF");
+          err.code = "wrong-type";
+          err.userMessage = "<strong>" + esc(picked.name || "Yeh file") + "</strong> ek " +
+            esc(format.toUpperCase()) + " file hai, PDF nahi. " +
+            "PDF Compressor ke liye PDF file chahiye — photo compress karne ke liye " +
+            "Photo Sheet ya Format Converter use karein.";
+          throw err;
+        }
+        pdfFile = picked;
+        show(panel);
+        setStat("pcOrig", fmtBytes(pdfFile.size));
+        setStat("pcNew", "—");
+        setStat("pcSaved", "—");
+        setStat("pcPages", "—");
+        if (btn) btn.disabled = false;
+        if (drop) {
+          var t = drop.querySelector(".ws-drop__sub");
+          if (t) t.textContent = pdfFile.name + " — " + fmtBytes(pdfFile.size);
+        }
+      });
     });
 
     if (btn) {
@@ -356,6 +611,7 @@
           .catch(function (err) {
             setStat("pcNew", "Failed");
             setStat("pcSaved", err && err.message ? err.message : "Error");
+            reportFailure(err);
           })
           .then(function () {
             btn.disabled = false;
@@ -412,9 +668,17 @@
     }
 
     initFileInput("image/*", function (f) {
-      files = Array.prototype.slice.call(f);
-      show(panel);
-      refreshList();
+      var picked = Array.prototype.slice.call(f);
+      return precheckFiles(picked).then(function (checked) {
+        var known = { jpeg: 1, png: 1, webp: 1, gif: 1, bmp: 1 };
+        var bad = checked.filter(function (c) { return c.format && !known[c.format]; });
+        if (bad.length) {
+          throw imageError(bad[0].file, bad[0].format, "Unsupported image format");
+        }
+        files = picked;
+        show(panel);
+        refreshList();
+      });
     });
 
     if (btn) {
@@ -427,11 +691,12 @@
         btn.disabled = true;
         var label = btn.innerHTML;
         btn.textContent = "Creating PDF…";
+        showBusy("PDF banaya ja raha hai…");
 
         loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js")
           .then(function () {
             var jsPDFctor = window.jspdf && window.jspdf.jsPDF;
-            if (!jsPDFctor) throw new Error("jsPDF unavailable");
+            if (!jsPDFctor) throw new Error("jsPDF library load nahi hui — internet check karein.");
 
             var first = null;
             return readImage(files[0]).then(function (r) {
@@ -453,9 +718,10 @@
             var url = URL.createObjectURL(blob);
             downloadURL(url, "rkhub-image-to-pdf.pdf");
             setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+            clearNotice();
           })
           .catch(function (err) {
-            alert("PDF create failed: " + (err && err.message ? err.message : "unknown error"));
+            reportFailure(err);
           })
           .then(function () {
             btn.disabled = files.length === 0;
@@ -555,7 +821,7 @@
     }
 
     initFileInput("image/*", function (files) {
-      readImage(files[0]).then(function (r) {
+      return readImage(files[0]).then(function (r) {
         current = r.img;
         show(panel);
         hide($("dropZone"));
@@ -623,7 +889,7 @@
     }
 
     initFileInput("image/*", function (files) {
-      readImage(files[0]).then(function (r) {
+      return readImage(files[0]).then(function (r) {
         current = r.img;
         show(panel);
         hide($("dropZone"));
@@ -707,7 +973,7 @@
     }
 
     initFileInput("image/*", function (files) {
-      readImage(files[0]).then(function (r) {
+      return readImage(files[0]).then(function (r) {
         current = r.img;
         origSize = files[0].size;
         show(panel);
@@ -882,7 +1148,7 @@
 
     initFileInput("image/*", function (files) {
       filesCount = files.length;
-      readImage(files[0]).then(function (r) {
+      return readImage(files[0]).then(function (r) {
         current = r.img;
         show(panel);
         hide($("dropZone"));
@@ -940,7 +1206,7 @@
             setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
           })
           .catch(function (err) {
-            alert("PDF create failed: " + (err && err.message ? err.message : "error"));
+            reportFailure(err);
           })
           .then(function () {
             pdfBtn.disabled = false;
@@ -1173,13 +1439,21 @@
     photoBtn.addEventListener("click", function () { photoInput.click(); });
     photoInput.addEventListener("change", function () {
       if (photoInput.files && photoInput.files[0]) {
-        readImage(photoInput.files[0]).then(function (r) { photo = r.img; render(); });
+        showBusy("Photo padhi ja rahi hai…");
+        readImage(photoInput.files[0]).then(function (r) {
+          photo = r.img;
+          render();
+          clearNotice();
+        })["catch"](function (err) {
+          reportFailure(err);
+        });
       }
+      photoInput.value = "";
     });
 
     // Main file drop zone is optional for the card tool (only for the photo).
     initFileInput("image/*", function (files) {
-      readImage(files[0]).then(function (r) {
+      return readImage(files[0]).then(function (r) {
         photo = r.img;
         show(panel);
         hide($("dropZone"));

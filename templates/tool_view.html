@@ -156,6 +156,9 @@
       <div class="container">
         <div class="tool-workspace" id="workspace" data-tool="{{ tool.slug }}">
 
+          <!-- shown when a file cannot be read / is being decoded -->
+          <div class="ws-notice" id="wsNotice" role="alert" aria-live="assertive" hidden></div>
+
           <!-- ============= FILE BASED TOOLS (drop zone) ================= -->
           {% if tool.slug in ['passport-photo', 'pdf-compressor', 'image-to-pdf',
                               'signature-extractor', 'document-crop', 'format-converter',
@@ -177,6 +180,11 @@
             </button>
             <p class="ws-note">
               🔒 सारी प्रोसेसिंग आपके ब्राउज़र में ही होती है — कोई फाइल सर्वर पर अपलोड या सेव नहीं होती।
+            </p>
+            <p class="ws-hint">
+              JPG · PNG · WebP supported
+              {% if tool.slug == 'image-to-pdf' %} · एक साथ कई फाइलें चुन सकते हैं{% endif %}<br />
+              HEIC/HEIF (iPhone photo) chalegi to browser par error dikhega — tab Settings → Camera → Formats = <strong>Most Compatible</strong> kar ke dobara try karein.
             </p>
           </div>
           {% endif %}
