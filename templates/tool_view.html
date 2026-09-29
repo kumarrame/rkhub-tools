@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="hi" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="{% if notfound %}Page not found{% else %}{{ tool.summary }} — {{ SITE.name }}{% endif %}" />
+  <meta name="theme-color" content="#0F2942" />
+  <title>{% if notfound %}404 — Page Not Found{% else %}{{ tool.name }} — {{ SITE.name }}{% endif %}</title>
+
+  <link rel="icon" href="{{ url_for('static', filename='images/logo.svg') }}" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+
+  <div class="topbar">
+    <div class="container topbar__inner">
+      <span class="topbar__gov">🇮🇳 Digital India • CSC / जन सेवा केंद्र Utility Portal</span>
+      <div class="topbar__owner">
+        <a class="topbar__link" href="tel:{{ OWNER.phone_raw }}">
+          <svg class="ico" aria-hidden="true"><use href="#i-phone"></use></svg>{{ OWNER.phone }}
+        </a>
+        <span class="topbar__sep" aria-hidden="true">•</span>
+        <a class="topbar__link" href="mailto:{{ OWNER.email }}">
+          <svg class="ico" aria-hidden="true"><use href="#i-mail"></use></svg>{{ OWNER.email }}
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <header class="navbar" id="navbar">
+    <div class="container navbar__inner">
+      <a class="brand" href="{{ url_for('index') }}">
+        <span class="brand__logo" aria-hidden="true">
+          <svg viewBox="0 0 128 128" width="42" height="42">
+            <defs>
+              <linearGradient id="brandTri" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#FF9933" />
+                <stop offset="50%" stop-color="#FFFFFF" />
+                <stop offset="100%" stop-color="#138808" />
+              </linearGradient>
+            </defs>
+            <rect x="4" y="4" width="120" height="120" rx="28" fill="#0F2942" />
+            <rect x="4" y="4" width="120" height="120" rx="28" fill="none" stroke="url(#brandTri)" stroke-width="6" />
+            <text x="64" y="80" text-anchor="middle" font-family="Arial, sans-serif"
+                  font-size="42" font-weight="800" fill="#FFFFFF" letter-spacing="1">RK</text>
+          </svg>
+        </span>
+        <span class="brand__text">
+          <span class="brand__name">{{ SITE.name }}</span>
+          <span class="brand__badge">{{ SITE.badge }}</span>
+        </span>
+      </a>
+
+      <nav class="nav" id="navMenu" aria-label="Primary">
+        <a class="nav__link" href="{{ url_for('index') }}#document">Document Tools</a>
+        <a class="nav__link" href="{{ url_for('index') }}#image">Image Tools</a>
+        <a class="nav__link" href="{{ url_for('index') }}#portals">Direct Portals</a>
+        <a class="nav__link" href="{{ url_for('index') }}#schemes">Schemes &amp; Services</a>
+        <a class="nav__link {% if page == 'tool' %}is-active{% endif %}" href="{{ url_for('index') }}#calculators">Calculators</a>
+        <a class="nav__link" href="{{ url_for('index') }}#contact">Contact</a>
+      </nav>
+
+      <div class="navbar__actions">
+        <button class="theme-toggle" id="themeToggle" type="button"
+                aria-label="Day / Night mode बदलें" title="Day / Night Mode">
+          <span class="theme-toggle__track">
+            <span class="theme-toggle__thumb">
+              <svg class="ico ico--sun" aria-hidden="true"><use href="#i-sun"></use></svg>
+              <svg class="ico ico--moon" aria-hidden="true"><use href="#i-moon"></use></svg>
+            </span>
+          </span>
+        </button>
+        <button class="nav-burger" id="navBurger" type="button"
+                aria-label="Menu" aria-expanded="false" aria-controls="navMenu">
+          <svg class="ico ico--open" aria-hidden="true"><use href="#i-menu"></use></svg>
+          <svg class="ico ico--close" aria-hidden="true"><use href="#i-close"></use></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="ticker" role="region" aria-label="Latest Updates">
+    <div class="ticker__label">
+      <span class="ticker__pulse" aria-hidden="true"></span>
+      <span>Latest Updates<small>नई जानकारी</small></span>
+    </div>
+    <div class="ticker__viewport">
+      <div class="ticker__track" id="tickerTrack">
+        {% for pass in [1, 2] %}
+          {% for n in NEWS %}
+            <span class="ticker__item" {% if pass == 2 %}aria-hidden="true"{% endif %}>
+              <span class="ticker__dot" aria-hidden="true">◆</span>{{ n }}
+            </span>
+          {% endfor %}
+        {% endfor %}
+      </div>
+    </div>
+    <button class="ticker__btn" id="tickerBtn" type="button" aria-label="Ticker pause / play" aria-pressed="false">
+      <svg class="ico ico--pause" aria-hidden="true"><use href="#i-pause"></use></svg>
+      <svg class="ico ico--play" aria-hidden="true"><use href="#i-play"></use></svg>
+    </button>
+  </div>
+
+  <main class="main" id="main">
+
+    <!-- ============================ 404 STATE ============================ -->
+    {% if notfound %}
+    <section class="section err404">
+      <div class="container err404__inner">
+        <p class="err404__code">404</p>
+        <h1 class="err404__title">यह टूल नहीं मिला / Tool not found</h1>
+        <p class="err404__desc">
+          आप जिस टूल या पेज की तलाश कर रहे हैं वह उपलब्ध नहीं है।
+          नीचे से सही टूल चुनें।
+        </p>
+        <a class="btn btn--red" href="{{ url_for('index') }}">
+          <svg class="ico" aria-hidden="true"><use href="#i-arrow"></use></svg>
+          सभी टूल्स पर वापस जाएँ
+        </a>
+      </div>
+    </section>
+
+    {% else %}
+
+    <!-- =========================== BREADCRUMB =========================== -->
+    <nav class="breadcrumb container" aria-label="Breadcrumb">
+      <a href="{{ url_for('index') }}">Home</a>
+      <span aria-hidden="true">/</span>
+      <a href="{{ url_for('index') }}#{{ tool.category }}">{{ tool.category | capitalize }}</a>
+      <span aria-hidden="true">/</span>
+      <span class="breadcrumb__current" aria-current="page">{{ tool.name }}</span>
+    </nav>
+
+    <!-- ============================ TOOL HERO =========================== -->
+    <section class="tool-hero accent-{{ tool.accent }}">
+      <div class="container tool-hero__inner">
+        <span class="tool-arch tool-arch--lg" aria-hidden="true">
+          <span class="tool-arch__ring"></span>
+          <svg class="ico"><use href="#i-{{ tool.icon }}"></use></svg>
+        </span>
+        <div class="tool-hero__text">
+          {% if tool.badge %}<span class="chip chip--{{ tool.accent }}">{{ tool.badge }}</span>{% endif %}
+          <h1 class="tool-hero__title">{{ tool.name }}</h1>
+          <p class="tool-hero__hi">{{ tool.name_hi }}</p>
+          <p class="tool-hero__desc">{{ tool.summary }}</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================== TOOL WORKSPACE ======================== -->
+    <section class="section">
+      <div class="container">
+        <div class="tool-workspace" id="workspace" data-tool="{{ tool.slug }}">
+
+          <!-- ============= FILE BASED TOOLS (drop zone) ================= -->
+          {% if tool.slug in ['passport-photo', 'pdf-compressor', 'image-to-pdf',
+                              'signature-extractor', 'document-crop', 'format-converter',
+                              'photo-sheet', 'pvc-card'] %}
+          <div class="ws-drop" id="dropZone" data-multi="{{ '1' if tool.slug == 'image-to-pdf' else '0' }}">
+            <span class="tool-arch tool-arch--lg" aria-hidden="true">
+              <span class="tool-arch__ring"></span>
+              <svg class="ico"><use href="#i-upload"></use></svg>
+            </span>
+            <h2 class="ws-drop__title">
+              {% if tool.slug == 'image-to-pdf' %}फाइलें यहाँ ड्रैग करें / Drop images here{% else %}फाइल यहाँ ड्रैग करें / Drop your file here{% endif %}
+            </h2>
+            <p class="ws-drop__sub">या नीचे बटन दबाकर चुनें</p>
+            <input type="file" id="fileInput" hidden
+                   {% if tool.slug == 'image-to-pdf' %}multiple accept="image/*"{% endif %} />
+            <button class="btn btn--red" type="button" id="pickBtn">
+              <svg class="ico" aria-hidden="true"><use href="#i-upload"></use></svg>
+              फाइल चुनें / Choose File
+            </button>
+            <p class="ws-note">
+              🔒 सारी प्रोसेसिंग आपके ब्राउज़र में ही होती है — कोई फाइल सर्वर पर अपलोड या सेव नहीं होती।
+            </p>
+          </div>
+          {% endif %}
+
+          <!-- ======================= CONTROL PANELS ====================== -->
+
+          <!-- Passport Photo Maker -->
+          {% if tool.slug == 'passport-photo' %}
+          <div class="ws-panel" data-panel="passport-photo" hidden>
+            <div class="ws-panel__controls">
+              <h3 class="ws-panel__title">Adjustments / सेटिंग्स</h3>
+              <div class="field">
+                <label for="ppBrightness">Brightness <output id="ppBrightnessOut">100%</output></label>
+                <input type="range" id="ppBrightness" min="40" max="200" value="100" />
+              </div>
+              <div class="field">
+                <label for="ppContrast">Contrast <output id="ppContrastOut">100%</output></label>
+                <input type="range" id="ppContrast" min="40" max="200" value="100" />
+              </div>
+              <div class="field">
+                <label for="ppZoom">Zoom <output id="ppZoomOut">100%</output></label>
+                <input type="range" id="ppZoom" min="100" max="200" value="100" />
+              </div>
+              <fieldset class="field">
+                <legend>Background / पृष्ठभूमि</legend>
+                <div class="swatches">
+                  <label class="swatch"><input type="radio" name="ppBg" value="#FFFFFF" checked /><span style="--sw:#FFFFFF"></span>White</label>
+                  <label class="swatch"><input type="radio" name="ppBg" value="#4285F4" /><span style="--sw:#4285F4"></span>Blue</label>
+                  <label class="swatch"><input type="radio" name="ppBg" value="#D32F2F" /><span style="--sw:#D32F2F"></span>Red</label>
+                  <label class="swatch"><input type="radio" name="ppBg" value="#FFB300" /><span style="--sw:#FFB300"></span>Amber</label>
+                  <label class="swatch"><input type="radio" name="ppBg" value="#0F2942" /><span style="--sw:#0F2942"></span>Navy</label>
+                </div>
+              </fieldset>
+              <p class="ws-hint">Output: <b>413 × 531 px</b> @ 300 DPI = 3.5 × 4.5 cm</p>
+            </div>
+            <div class="ws-panel__preview">
+              <h3 class="ws-panel__title">Preview / पूर्वावलोकन</h3>
+              <div class="ws-canvas" id="wsCanvas"></div>
+              <div class="ws-actions">
+                <button class="btn btn--amber" type="button" id="downloadBtn">
+                  <svg class="ico" aria-hidden="true"><use href="#i-download"></use></svg> Download PNG
+                </button>
+                <button class="btn btn--ghost" type="button" id="resetBtn">Reset</button>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- PDF Compressor -->
+          {% if tool.slug == 'pdf-compressor' %}
+          <div class="ws-panel" data-panel="pdf-compressor" hidden>
+            <div class="ws-panel__controls">
+              <h3 class="ws-panel__title">Compression Level</h3>
+              <div class="field">
+                <label for="pcLevel">Level</label>
+                <select id="pcLevel">
+                  <option value="light">Light — max quality (~100 DPI)</option>
+                  <option value="medium" selected>Medium — balanced (~150 DPI)</option>
+                  <option value="strong">Strong — smallest size (~96 DPI)</option>
+                </select>
+              </div>
+              <p class="ws-hint">
+                Rendering engine: <b>pdf-lib</b> (CDN). Pages are re-rendered on a canvas
+                and re-packed — the original file is never sent anywhere.
+              </p>
+            </div>
+            <div class="ws-panel__preview">
+              <h3 class="ws-panel__title">Result / परिणाम</h3>
+              <div class="ws-stats" id="pcStats">
+                <div class="ws-stat"><span class="ws-stat__lbl">Original</span><span class="ws-stat__val" id="pcOrig">—</span></div>
+                <div class="ws-stat"><span class="ws-stat__lbl">Compressed</span><span class="ws-stat__val" id="pcNew">—</span></div>
+                <div class="ws-stat ws-stat--good"><span class="ws-stat__lbl">Saved</span><span class="ws-stat__val" id="pcSaved">—</span></div>
+                <div class="ws-stat"><span class="ws-stat__lbl">Pages</span><span class="ws-stat__val" id="pcPages">—</span></div>
+              </div>
+              <div class="ws-actions">
+                <button class="btn btn--amber" type="button" id="compressBtn" disabled>
+                  <svg class="ico" aria-hidden="true"><use href="#i-download"></use></svg> Compress PDF
+                </button>
+                <button class="btn btn--ghost" type="button" id="resetBtn">Reset</button>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- Image to PDF -->
+          {% if tool.slug == 'image-to-pdf' %}
+          <div class="ws-panel" data-panel="image-to-pdf" hidden>
+            <div class="ws-panel__controls">
+              <h3 class="ws-panel__title">Page Settings / पेज सेटिंग</h3>
+              <div class="field">
+                <label for="ipPageSize">Page Size</label>
+                <select id="ipPageSize">
+                  <option value="a4" selected>A4 (210 × 297 mm)</option>
+                  <option value="letter">Letter (8.5 × 11 in)</option>
+                  <option value="auto">Auto — match first image</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="ipOrientation">Orientation</label>
+                <select id="ipOrientation">
+                  <option value="p" selected>Portrait</option>
+                  <option value="l">Landscape</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="ipMargin">Margin <output id="ipMarginOut">10 mm</output></label>
+                <input type="range" id="ipMargin" min="0" max="25" value="10" />
+              </div>
+              <p class="ws-hint">Engine: <b>jsPDF</b> (CDN). Selected files: <b id="ipCount">0</b></p>
+            </div>
+            <div class="ws-panel__preview">
+              <h3 class="ws-panel__title">Selected Images</h3>
+              <ul class="file-list" id="ipList"></ul>
+              <div class="ws-actions">
+                <button class="btn btn--amber" type="button" id="convertBtn" disabled>
+                  <svg class="ico" aria-hidden="true"><use href="#i-download"></use></svg> Create PDF
+                </button>
+                <button class="btn btn--ghost" type="button" id="resetBtn">Reset</button>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- Signature Extractor -->
+          {% if tool.slug == 'signature-extractor' %}
+          <div class="ws-panel" data-panel="signature-extractor" hidden>
+            <div class="ws-panel__controls">
+              <h3 class="ws-panel__title">B&amp;W Controls</h3>
+              <div class="field">
+                <label for="seBrightness">Brightness <output id="seBrightnessOut">0</output></label>
+                <input type="range" id="seBrightness" min="-100" max="100" value="0" />
+              </div>
+              <div class="field">
+                <label for="seContrast">Contrast <output id="seContrastOut">100</output></label>
+                <input type="range" id="seContrast" min="50" max="300" value="100" />
+              </div>
+              <div class="field">
+                <label for="seThreshold">Threshold <output id="seThresholdOut">128</output></label>
+                <input type="range" id="seThreshold" min="0" max="255" value="128" />
+              </div>
+              <div class="field field--check">
+                <input type="checkbox" id="seInvert" />
+                <label for="seInvert">Invert (white ↔ black)</label>
+              </div>
+              <p class="ws-hint">Tip: पहले contrast बढ़ाएँ, फिर threshold tune करें।</p>
+            </div>
+            <div class="ws-panel__preview">
+              <h3 class="ws-panel__title">Preview / पूर्वावलोकन</h3>
+              <div class="ws-canvas" id="wsCanvas"></div>
+              <div class="ws-actions">
+                <button class="btn btn--amber" type="button" id="downloadBtn" disabled>
+                  <svg class="ico" aria-hidden="true"><use href="#i-download"></use></svg> Download PNG
+                </button>
+                <button class="btn btn--ghost" type="button" id="resetBtn">Reset</button>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- Document Crop -->
+          {% if tool.slug == 'document-crop' %}
+          <div class="ws-panel" data-panel="document-crop" hidden>
+            <div class="ws-panel__controls">
+              <h3 class="ws-panel__title">Crop / क्रॉप</h3>
+              <div class="field">
+                <label for="dcTop">Top <output id="dcTopOut">0%</output></label>
+                <input type="range" id="dcTop" min="0" max="45" value="0" />
+              </div>
+              <div class="field">
+                <label for="dcBottom">Bottom <output id="dcBottomOut">0%</output></label>
+                <input type="range" id="dcBottom" min="0" max="45" value="0" />
+              </div>
+              <div class="field">
+                <label for="dcLeft">Left <output id="dcLeftOut">0%</output></label>
+                <input type="range" id="dcLeft" min="0" max="45" value="0" />
+              </div>
+              <div class="field">
+                <label for="dcRight">Right <output id="dcRightOut">0%</output></label>
+                <input type="range" id="dcRight" min="0" max="45" value="0" />
+              </div>
+              <div class="field field--check">
+                <input type="checkbox" id="dcEnhance" checked />
+                <label for="dcEnhance">Auto-Enhance (sharpen + contrast)</label>
+              </div>
+            </div>
+            <div class="ws-panel__preview">
+              <h3 class="ws-panel__title">Preview / पूर्वावलोकन</h3>
+              <div class="ws-canvas" id="wsCanvas"></div>
+              <div class="ws-actions">
+                <button class="btn btn--amber" type="button" id="downloadBtn" disabled>
+                  <svg class="ico" aria-hidden="true"><use href="#i-download"></use></svg> Download JPG
+                </button>
+                <button class="btn btn--ghost" type="button" id="resetBtn">Reset</button>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- Photo Sheet Printer -->
+          {% if tool.slug == 'photo-sheet' %}
+          <div class="ws-panel" data-panel="photo-sheet" hidden>
+            <div class="ws-panel__controls">
+              <h3 class="ws-panel__title">Sheet Settings / शीट सेटिंग</h3>
+
+              <div class="field">
+                <label for="psSize">Photo Size</label>
+                <select id="psSize">
+                  <option value="35x45" selected>Passport — 35 × 45 mm</option>
+                  <option value="25x35">Stamp Size — 25 × 35 mm</option>
+                  <option value="20x25">Small — 20 × 25 mm</option>
+                  <option value="50x65">Large — 50 × 65 mm</option>
+                  <option value="30x40">Visa — 30 × 40 mm</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label for="psLayout">Photos per Sheet</label>
+                <select id="psLayout">
+                  <option value="2x2">4 photos (2 × 2)</option>
+                  <option value="3x2">6 photos (3 × 2)</option>
+                  <option value="4x2">8 photos (4 × 2)</option>
+                  <option value="3x3">9 photos (3 × 3)</option>
+                  <option value="4x3" selected>12 photos (4 × 3)</option>
+                  <option value="4x4">16 photos (4 × 4)</option>
+                  <option value="5x4">20 photos (5 × 4)</option>
+                  <option value="6x4">24 photos (6 × 4)</option>
+                  <option value="6x5">30 photos (6 × 5)</option>
+                  <option value="6x6">36 photos (6 × 6)</option>
+                </select>
+              </div>
+
+              <fieldset class="field">
+                <legend>Background / पृष्ठभूमि</legend>
+                <div class="swatches">
+                  <label class="swatch"><input type="radio" name="psBg" value="#FFFFFF" checked /><span style="--sw:#FFFFFF"></span>White</label>
+                  <label class="swatch"><input type="radio" name="psBg" value="#4285F4" /><span style="--sw:#4285F4"></span>Blue</label>
+                  <label class="swatch"><input type="radio" name="psBg" value="#D32F2F" /><span style="--sw:#D32F2F"></span>Red</label>
+                  <label class="swatch"><input type="radio" name="psBg" value="#FFB300" /><span style="--sw:#FFB300"></span>Amber</label>
+                  <label class="swatch"><input type="radio" name="psBg" value="#0F2942" /><span style="--sw:#0F2942"></span>Navy</label>
+                  <label class="swatch"><input type="radio" name="psBg" value="#EAF2FB" /><span style="--sw:#EAF2FB"></span>Off-white</label>
+                </div>
+              </fieldset>
+
+              <div class="field">
+                <label for="psBrightness">Brightness <output id="psBrightnessOut">100%</output></label>
+                <input type="range" id="psBrightness" min="40" max="200" value="100" />
+              </div>
+              <div class="field">
+                <label for="psContrast">Contrast <output id="psContrastOut">100%</output></label>
+                <input type="range" id="psContrast" min="40" max="200" value="100" />
+              </div>
+
+              <div class="field field--check">
+                <input type="checkbox" id="psGuides" checked />
+                <label for="psGuides">Cut guides दिखाएँ</label>
+              </div>
+              <div class="field field--check">
+                <input type="checkbox" id="psLabel" />
+                <label for="psLabel">Sheet पर नाम लिखें</label>
+              </div>
+              <div class="field" id="psLabelWrap" hidden>
+                <label for="psName">Name on sheet</label>
+                <input type="text" id="psName" placeholder="e.g. RAMESH KUMAR" />
+              </div>
+
+              <p class="ws-hint">A4 @ 300 DPI = 2480 × 3508 px — direct print ready.</p>
+            </div>
+
+            <div class="ws-panel__preview">
+              <h3 class="ws-panel__title">Sheet Preview / शीट प्रीव्यू</h3>
+              <div class="ws-canvas ws-canvas--sheet" id="wsCanvas"></div>
+              <div class="ws-stats">
+                <div class="ws-stat"><span class="ws-stat__lbl">Photos</span><span class="ws-stat__val" id="psCount">—</span></div>
+                <div class="ws-stat"><span class="ws-stat__lbl">Photo Size</span><span class="ws-stat__val" id="psDim">—</span></div>
+                <div class="ws-stat ws-stat--good"><span class="ws-stat__lbl">Sheets</span><span class="ws-stat__val" id="psSheets">1</span></div>
+              </div>
+              <div class="ws-actions">
+                <button class="btn btn--amber" type="button" id="downloadBtn">
+                  <svg class="ico" aria-hidden="true"><use href="#i-download"></use></svg> Download Sheet (PNG)
+                </button>
+                <button class="btn btn--ghost" type="button" id="downloadPdfBtn">
+                  <svg class="ico" aria-hidden="true"><use href="#i-pdf"></use></svg> Download Print PDF
+                </button>
+                <button class="btn btn--ghost" type="button" id="resetBtn">Reset</button>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- PVC Card Maker -->
+          {% if tool.slug == 'pvc-card' %}
+          <div class="ws-panel" data-panel="pvc-card" hidden>
+            <div class="ws-panel__controls">
+              <h3 class="ws-panel__title">Card Details / कार्ड डिटेल</h3>
+
+              <div class="field">
+                <label for="pcName">Name / नाम</label>
+                <input type="text" id="pcName" placeholder="RAMESH KUMAR" maxlength="32" />
+              </div>
+              <div class="field">
+                <label for="pcFather">Father / पिता का नाम</label>
+                <input type="text" id="pcFather" placeholder="Father's name" maxlength="32" />
+              </div>
+              <div class="field">
+                <label for="pcDob">DOB / जन्म तिथि</label>
+                <input type="text" id="pcDob" placeholder="DD/MM/YYYY" maxlength="10" />
+              </div>
+              <div class="field">
+                <label for="pcGender">Gender / लिंग</label>
+                <select id="pcGender">
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="pcBlood">Blood Group</label>
+                <select id="pcBlood">
+                  <option value="">—</option>
+                  <option>A+</option><option>A-</option>
+                  <option>B+</option><option>B-</option>
+                  <option>AB+</option><option>AB-</option>
+                  <option>O+</option><option>O-</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="pcMobile">Mobile</label>
+                <input type="text" id="pcMobile" placeholder="+91 99912-44415" maxlength="16" />
+              </div>
+              <div class="field">
+                <label for="pcAddress">Address / पता</label>
+                <input type="text" id="pcAddress" placeholder="Village, District, State" maxlength="48" />
+              </div>
+
+              <h3 class="ws-panel__title" style="margin-top:1.4rem">Design / डिज़ाइन</h3>
+              <div class="field">
+                <label for="pcTheme">Theme</label>
+                <select id="pcTheme">
+                  <option value="navy">Navy Blue</option>
+                  <option value="red">Red</option>
+                  <option value="green">Green</option>
+                  <option value="amber">Amber</option>
+                  <option value="tricolor">Tricolor (India)</option>
+                  <option value="white">White Minimal</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="pcOrg">Header Text (optional)</label>
+                <input type="text" id="pcOrg" placeholder="e.g. JAN SEVA KENDRA" maxlength="28" />
+              </div>
+              <div class="field field--check">
+                <input type="checkbox" id="pcQr" />
+                <label for="pcQr">Fake QR block दिखाएँ</label>
+              </div>
+
+              <p class="ws-hint">Size: CR80 — 85.6 × 54 mm @ 300 DPI = 1011 × 638 px</p>
+            </div>
+
+            <div class="ws-panel__preview">
+              <h3 class="ws-panel__title">Card Preview / कार्ड प्रीव्यू</h3>
+              <div class="ws-canvas ws-canvas--card" id="wsCanvas"></div>
+              <div class="ws-actions">
+                <button class="btn btn--amber" type="button" id="downloadBtn">
+                  <svg class="ico" aria-hidden="true"><use href="#i-download"></use></svg> Download Card (PNG)
+                </button>
+                <button class="btn btn--ghost" type="button" id="resetBtn">Reset</button>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- Format Converter -->
+          {% if tool.slug == 'format-converter' %}
+          <div class="ws-panel" data-panel="format-converter" hidden>
+            <div class="ws-panel__controls">
+              <h3 class="ws-panel__title">Output Settings</h3>
+              <div class="field">
+                <label for="fcFormat">Format</label>
+                <select id="fcFormat">
+                  <option value="image/png">PNG</option>
+                  <option value="image/jpeg" selected>JPG</option>
+                  <option value="image/webp">WebP</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="fcQuality">Quality <output id="fcQualityOut">0.90</output></label>
+                <input type="range" id="fcQuality" min="10" max="100" value="90" />
+              </div>
+              <div class="field">
+                <label for="fcMaxWidth">Max Width <output id="fcMaxWidthOut">0 = original</output></label>
+                <input type="range" id="fcMaxWidth" min="0" max="3000" step="50" value="0" />
+              </div>
+            </div>
+            <div class="ws-panel__preview">
+              <h3 class="ws-panel__title">Preview / पूर्वावलोकन</h3>
+              <div class="ws-canvas" id="wsCanvas"></div>
+              <div class="ws-stats">
+                <div class="ws-stat"><span class="ws-stat__lbl">Original</span><span class="ws-stat__val" id="fcOrig">—</span></div>
+                <div class="ws-stat"><span class="ws-stat__lbl">Output</span><span class="ws-stat__val" id="fcNew">—</span></div>
+                <div class="ws-stat"><span class="ws-stat__lbl">Dimensions</span><span class="ws-stat__val" id="fcDims">—</span></div>
+              </div>
+              <div class="ws-actions">
+                <button class="btn btn--amber" type="button" id="downloadBtn" disabled>
+                  <svg class="ico" aria-hidden="true"><use href="#i-download"></use></svg> Download
+                </button>
+                <button class="btn btn--ghost" type="button" id="resetBtn">Reset</button>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- ======================= CALCULATORS ========================= -->
+
+          <!-- Age Calculator -->
+          {% if tool.slug == 'age-calculator' %}
+          <div class="calc">
+            <div class="calc__form">
+              <div class="field">
+                <label for="acDobD">Date of Birth / जन्म तिथि</label>
+                <div class="datefield" data-datefield="acDob">
+                  <select class="datefield__sel" data-part="d" id="acDobD" aria-label="Day"></select>
+                  <span class="datefield__sep" aria-hidden="true">/</span>
+                  <select class="datefield__sel" data-part="m" aria-label="Month"></select>
+                  <span class="datefield__sep" aria-hidden="true">/</span>
+                  <select class="datefield__sel" data-part="y" aria-label="Year"></select>
+                </div>
+                <p class="datefield__hint">Format: DD / MM / YYYY</p>
+              </div>
+              <div class="field">
+                <label for="acAsOnD">Age as on / जिस तिथि तक</label>
+                <div class="datefield" data-datefield="acAsOn">
+                  <select class="datefield__sel" data-part="d" id="acAsOnD" aria-label="Day"></select>
+                  <span class="datefield__sep" aria-hidden="true">/</span>
+                  <select class="datefield__sel" data-part="m" aria-label="Month"></select>
+                  <span class="datefield__sep" aria-hidden="true">/</span>
+                  <select class="datefield__sel" data-part="y" aria-label="Year"></select>
+                </div>
+                <p class="datefield__hint">Format: DD / MM / YYYY</p>
+              </div>
+              <button class="btn btn--ghost" type="button" id="acTodayBtn" style="width:100%">
+                आज की तिथि रखें / Set today
+              </button>
+            </div>
+            <div class="calc__out" id="acOut">
+              <div class="result-box result-box--hi"><span class="result-box__lbl">Years</span><span class="result-box__val" id="acY">—</span></div>
+              <div class="result-box"><span class="result-box__lbl">Months</span><span class="result-box__val" id="acM">—</span></div>
+              <div class="result-box"><span class="result-box__lbl">Days</span><span class="result-box__val" id="acD">—</span></div>
+              <div class="result-box"><span class="result-box__lbl">Total Months</span><span class="result-box__val" id="acTM">—</span></div>
+              <div class="result-box"><span class="result-box__lbl">Total Weeks</span><span class="result-box__val" id="acTW">—</span></div>
+              <div class="result-box"><span class="result-box__lbl">Total Days</span><span class="result-box__val" id="acTD">—</span></div>
+              <div class="result-box result-box--amber"><span class="result-box__lbl">Next Birthday</span><span class="result-box__val" id="acBday">—</span></div>
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- Stamp Duty -->
+          {% if tool.slug == 'stamp-duty' %}
+          <div class="calc">
+            <div class="calc__form">
+              <div class="field">
+                <label for="sdValue">Property Value (₹)</label>
+                <input type="number" id="sdValue" value="1000000" min="0" step="1000" inputmode="numeric" />
+              </div>
+              <div class="field">
+                <label for="sdPreset">State / प्रकार</label>
+                <select id="sdPreset">
+                  <option value="6">Haryana (6%)</option>
+                  <option value="7">Delhi (7%)</option>
+                  <option value="8">Uttar Pradesh (8%)</option>
+                  <option value="5">Maharashtra (5%)</option>
+                  <option value="3">Karnataka (3%)</option>
+                  <option value="custom">Custom %</option>
+                </select>
+              </div>
+              <div class="field" id="sdCustomWrap" hidden>
+                <label for="sdCustomPct">Custom Stamp Duty %</label>
+                <input type="number" id="sdCustomPct" value="6" min="0" max="20" step="0.1" />
+              </div>
+              <div class="field">
+                <label for="sdRegPct">Registration Fee %</label>
+                <input type="number" id="sdRegPct" value="1" min="0" max="10" step="0.1" />
+              </div>
+            </div>
+            <div class="calc__out">
+              <div class="result-box"><span class="result-box__lbl">Stamp Duty</span><span class="result-box__val" id="sdDuty">—</span></div>
+              <div class="result-box"><span class="result-box__lbl">Registration Fee</span><span class="result-box__val" id="sdReg">—</span></div>
+              <div class="result-box result-box--good"><span class="result-box__lbl">Total Charge</span><span class="result-box__val" id="sdTotal">—</span></div>
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- CSC Commission -->
+          {% if tool.slug == 'csc-commission' %}
+          <div class="calc">
+            <div class="calc__form">
+              <div class="field">
+                <label for="ccAmount">Service Amount (₹)</label>
+                <input type="number" id="ccAmount" value="1000" min="0" step="10" inputmode="numeric" />
+              </div>
+              <div class="field">
+                <label for="ccRate">Commission Rate (₹ per service)</label>
+                <input type="number" id="ccRate" value="40" min="0" step="1" inputmode="numeric" />
+              </div>
+              <div class="field">
+                <label for="ccTds">TDS %</label>
+                <input type="number" id="ccTds" value="0" min="0" max="30" step="0.1" />
+              </div>
+              <div class="field">
+                <label for="ccGst">GST %</label>
+                <input type="number" id="ccGst" value="0" min="0" max="30" step="0.1" />
+              </div>
+              <div class="field">
+                <label for="ccExp">Daily Expenses (₹)</label>
+                <input type="number" id="ccExp" value="0" min="0" step="10" inputmode="numeric" />
+              </div>
+            </div>
+            <div class="calc__out">
+              <div class="result-box"><span class="result-box__lbl">Gross Commission</span><span class="result-box__val" id="ccGross">—</span></div>
+              <div class="result-box"><span class="result-box__lbl">TDS Deducted</span><span class="result-box__val" id="ccTdsOut">—</span></div>
+              <div class="result-box"><span class="result-box__lbl">GST Added</span><span class="result-box__val" id="ccGstOut">—</span></div>
+              <div class="result-box result-box--hi"><span class="result-box__lbl">Net Payable</span><span class="result-box__val" id="ccNet">—</span></div>
+              <div class="result-box result-box--good"><span class="result-box__lbl">Profit (after expenses)</span><span class="result-box__val" id="ccProfit">—</span></div>
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- File Size Converter -->
+          {% if tool.slug == 'file-size-converter' %}
+          <div class="calc">
+            <div class="calc__form">
+              <div class="field">
+                <label for="fsValue">Value</label>
+                <input type="number" id="fsValue" value="1" min="0" step="any" inputmode="decimal" />
+              </div>
+              <div class="field">
+                <label for="fsUnit">Unit</label>
+                <select id="fsUnit">
+                  <option value="1">Bytes</option>
+                  <option value="1024">KB</option>
+                  <option value="1048576" selected>MB</option>
+                  <option value="1073741824">GB</option>
+                  <option value="1099511627776">TB</option>
+                </select>
+              </div>
+            </div>
+            <div class="calc__out">
+              <div class="result-box"><span class="result-box__lbl">Bytes</span><span class="result-box__val" id="fsB">—</span></div>
+              <div class="result-box"><span class="result-box__lbl">KB</span><span class="result-box__val" id="fsKB">—</span></div>
+              <div class="result-box result-box--hi"><span class="result-box__lbl">MB</span><span class="result-box__val" id="fsMB">—</span></div>
+              <div class="result-box"><span class="result-box__lbl">GB</span><span class="result-box__val" id="fsGB">—</span></div>
+              <div class="result-box"><span class="result-box__lbl">TB</span><span class="result-box__val" id="fsTB">—</span></div>
+            </div>
+          </div>
+          {% endif %}
+
+        </div>
+
+        <!-- ============================ HOW TO =========================== -->
+        <div class="howto">
+          <h3 class="howto__title">कैसे उपयोग करें / How to use</h3>
+          <ol class="howto__list">
+            {% if tool.category == 'calculators' %}
+              <li>बाईं तरफ़ दिए गए फ़ील्ड में अपनी जानकारी भरें।</li>
+              <li>नतीजे तुरंत दाईं तरफ़ अपडेट हो जाते हैं — कोई बटन दबाने की ज़रूरत नहीं।</li>
+              <li>पूरा नतीजा फ़ॉर्म भरते समय सीधे इस्तेमाल करें।</li>
+            {% else %}
+              <li>ऊपर अपनी फाइल चुनें या ड्रैग-एंड-ड्रॉप करें।</li>
+              <li>बाईं तरफ़ स्लाइडर / विकल्प से रिज़ल्ट एडजस्ट करें।</li>
+              <li>प्रीव्यू देखकर <b>Download</b> दबाएँ और सेव करें।</li>
+              <li>पेज बंद होते ही सारा डाटा अपने आप डिलीट हो जाता है।</li>
+            {% endif %}
+          </ol>
+        </div>
+      </div>
+    </section>
+    {% endif %}
+  </main>
+
+  <footer class="footer">
+    <div class="container footer__grid">
+      <div class="footer__col">
+        <span class="brand brand--footer">
+          <span class="brand__logo" aria-hidden="true">
+            <svg viewBox="0 0 128 128" width="40" height="40">
+              <rect x="4" y="4" width="120" height="120" rx="28" fill="#0F2942" />
+              <rect x="4" y="4" width="120" height="120" rx="28" fill="none" stroke="#FF9933" stroke-width="6" />
+              <text x="64" y="80" text-anchor="middle" font-family="Arial, sans-serif"
+                    font-size="42" font-weight="800" fill="#FFFFFF">RK</text>
+            </svg>
+          </span>
+          <span class="brand__text">
+            <span class="brand__name">{{ SITE.name }}</span>
+            <span class="brand__badge">{{ SITE.badge }}</span>
+          </span>
+        </span>
+        <address class="footer__owner">
+          <strong>{{ OWNER.name }}</strong><br />
+          {{ OWNER.role }}<br />
+          <a href="tel:{{ OWNER.phone_raw }}">{{ OWNER.phone }}</a><br />
+          <a href="mailto:{{ OWNER.email }}">{{ OWNER.email }}</a>
+        </address>
+      </div>
+      <div class="footer__col">
+        <h4 class="footer__title">Document &amp; Image Tools</h4>
+        <ul class="footer__links">
+          {% for t in INTERNAL_TOOLS %}<li><a href="{{ url_for('tool_view', slug=t.slug) }}">{{ t.name }}</a></li>{% endfor %}
+        </ul>
+      </div>
+      <div class="footer__col">
+        <h4 class="footer__title">Portals &amp; Schemes</h4>
+        <ul class="footer__links">
+          {% for t in EXTERNAL_TOOLS %}<li><a href="{{ t.url }}" target="_blank" rel="noopener noreferrer">{{ t.name }}</a></li>{% endfor %}
+        </ul>
+      </div>
+      <div class="footer__col">
+        <h4 class="footer__title">Disclaimer / अस्वीकरण</h4>
+        <p class="footer__disclaimer">{{ SITE.disclaimer }}</p>
+      </div>
+    </div>
+    <div class="container footer__tagline-wrap">
+      <div class="trust-seal" id="trustSeal">
+        <span class="trust-seal__emblem" aria-hidden="true">
+          <svg class="ico"><use href="#i-seal"></use></svg>
+        </span>
+        <div class="trust-seal__body">
+          <p class="trust-seal__line">
+            <span class="trust-seal__strike">सरकारी नहीं</span>
+            <span class="trust-seal__sep">पर</span>
+            <span class="trust-seal__claim">दावा ईमानदार।</span>
+          </p>
+          <p class="trust-seal__en">{{ SITE.tagline_en }}</p>
+        </div>
+        <ul class="trust-seal__marks">
+          {% for m in SITE.tagline_marks %}
+            <li><svg class="ico" aria-hidden="true"><use href="#i-check"></use></svg>{{ m }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+    <div class="footer__bottom">
+      <div class="container footer__bottom-inner">
+        <p>© {{ SITE.year }} {{ SITE.name }}. All Rights Reserved.</p>
+        <p>Made in India 🇮🇳 • Not a Government website</p>
+      </div>
+    </div>
+  </footer>
+
+  <button class="to-top" id="toTop" type="button" aria-label="ऊपर जाएँ">
+    <svg class="ico" aria-hidden="true"><use href="#i-arrow"></use></svg>
+  </button>
+
+  <a class="wa-float" id="waFloat" href="{{ OWNER.whatsapp }}"
+     target="_blank" rel="noopener noreferrer" aria-label="WhatsApp par message karein">
+    <span class="wa-float__ring" aria-hidden="true"></span>
+    <svg class="ico" aria-hidden="true"><use href="#i-whatsapp"></use></svg>
+    <span class="wa-float__label">WhatsApp</span>
+  </a>
+
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+    {% for name, body in ICONS.items() %}
+    <symbol id="i-{{ name }}" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">{{ body|safe }}</symbol>
+    {% endfor %}
+  </svg>
+
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<script src="{{ url_for('static', filename='js/tools.js') }}"></script>
+</body>
+</html>

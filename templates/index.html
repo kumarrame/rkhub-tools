@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="hi" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="RKHUB Tools — CSC / Jan Seva Kendra operators ke liye document, image, calculator aur government portal utility hub. 100% private, koi file upload nahi hoti." />
+  <meta name="theme-color" content="#0F2942" />
+  <title>{{ SITE.title }}</title>
+
+  <link rel="icon" href="{{ url_for('static', filename='images/logo.svg') }}" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+
+  <!-- ============================== TOP BAR ============================== -->
+  <div class="topbar">
+    <div class="container topbar__inner">
+      <span class="topbar__gov">🇮🇳 Digital India • CSC / जन सेवा केंद्र Utility Portal</span>
+      <div class="topbar__owner">
+        <a class="topbar__link" href="tel:{{ OWNER.phone_raw }}">
+          <svg class="ico" aria-hidden="true"><use href="#i-phone"></use></svg>
+          {{ OWNER.phone }}
+        </a>
+        <span class="topbar__sep" aria-hidden="true">•</span>
+        <a class="topbar__link" href="mailto:{{ OWNER.email }}">
+          <svg class="ico" aria-hidden="true"><use href="#i-mail"></use></svg>
+          {{ OWNER.email }}
+        </a>
+        <span class="topbar__sep" aria-hidden="true">•</span>
+        <a class="topbar__link topbar__link--wa" href="{{ OWNER.whatsapp }}" target="_blank" rel="noopener noreferrer">
+          <svg class="ico" aria-hidden="true"><use href="#i-whatsapp"></use></svg>
+          WhatsApp
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- =============================== NAVBAR =============================== -->
+  <header class="navbar" id="navbar">
+    <div class="container navbar__inner">
+      <a class="brand" href="{{ url_for('index') }}">
+        <span class="brand__logo" aria-hidden="true">
+          <svg viewBox="0 0 128 128" width="42" height="42">
+            <defs>
+              <linearGradient id="brandTri" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#FF9933" />
+                <stop offset="50%" stop-color="#FFFFFF" />
+                <stop offset="100%" stop-color="#138808" />
+              </linearGradient>
+            </defs>
+            <rect x="4" y="4" width="120" height="120" rx="28" fill="#0F2942" />
+            <rect x="4" y="4" width="120" height="120" rx="28" fill="none" stroke="url(#brandTri)" stroke-width="6" />
+            <text x="64" y="80" text-anchor="middle" font-family="Arial, sans-serif"
+                  font-size="42" font-weight="800" fill="#FFFFFF" letter-spacing="1">RK</text>
+          </svg>
+        </span>
+        <span class="brand__text">
+          <span class="brand__name">{{ SITE.name }}</span>
+          <span class="brand__badge">{{ SITE.badge }}</span>
+        </span>
+      </a>
+
+      <nav class="nav" id="navMenu" aria-label="Primary">
+        <a class="nav__link {% if page == 'home' %}is-active{% endif %}" href="{{ url_for('index') }}">Home</a>
+        <a class="nav__link" href="#document">Document Tools</a>
+        <a class="nav__link" href="#image">Image Tools</a>
+        <a class="nav__link" href="#portals">Direct Portals</a>
+        <a class="nav__link" href="#schemes">Schemes &amp; Services</a>
+        <a class="nav__link" href="#calculators">Calculators</a>
+        <a class="nav__link" href="#contact">Contact</a>
+      </nav>
+
+      <div class="navbar__actions">
+        <button class="theme-toggle" id="themeToggle" type="button"
+                aria-label="Day / Night mode बदलें" title="Day / Night Mode">
+          <span class="theme-toggle__track">
+            <span class="theme-toggle__thumb">
+              <svg class="ico ico--sun" aria-hidden="true"><use href="#i-sun"></use></svg>
+              <svg class="ico ico--moon" aria-hidden="true"><use href="#i-moon"></use></svg>
+            </span>
+          </span>
+        </button>
+        <button class="nav-burger" id="navBurger" type="button"
+                aria-label="Menu" aria-expanded="false" aria-controls="navMenu">
+          <svg class="ico ico--open" aria-hidden="true"><use href="#i-menu"></use></svg>
+          <svg class="ico ico--close" aria-hidden="true"><use href="#i-close"></use></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============================== TICKER =============================== -->
+  <div class="ticker" role="region" aria-label="Latest Updates">
+    <div class="ticker__label">
+      <span class="ticker__pulse" aria-hidden="true"></span>
+      <span>Latest Updates<small>नई जानकारी</small></span>
+    </div>
+    <div class="ticker__viewport">
+      <div class="ticker__track" id="tickerTrack">
+        {% for pass in [1, 2] %}
+          {% for n in NEWS %}
+            <span class="ticker__item" style="--n: {{ loop.index0 }}" {% if pass == 2 %}aria-hidden="true"{% endif %}>
+              <span class="ticker__dot" aria-hidden="true">◆</span>{{ n }}
+            </span>
+          {% endfor %}
+        {% endfor %}
+      </div>
+    </div>
+    <button class="ticker__btn" id="tickerBtn" type="button" aria-label="Ticker pause / play" aria-pressed="false">
+      <svg class="ico ico--pause" aria-hidden="true"><use href="#i-pause"></use></svg>
+      <svg class="ico ico--play" aria-hidden="true"><use href="#i-play"></use></svg>
+    </button>
+  </div>
+
+  <!-- =========================== PRIVACY BANNER =========================== -->
+  <section class="privacy" aria-label="Data privacy guarantee">
+    <div class="container privacy__inner">
+      <span class="privacy__icon" aria-hidden="true">
+        <svg class="ico"><use href="#i-lock"></use></svg>
+      </span>
+      <p class="privacy__text">
+        <strong>🔒 आपकी गोपनीयता हमारी प्राथमिकता:</strong>
+        आपका कोई भी डाटा या डॉक्यूमेंट हमारे सर्वर पर सेव नहीं होता।
+        प्रोसेस पूरा होते ही सब कुछ अपने आप तुरंत डिलीट हो जाता है।
+      </p>
+      <span class="privacy__tag">
+        <svg class="ico" aria-hidden="true"><use href="#i-shield"></use></svg> 100% Safe
+      </span>
+    </div>
+  </section>
+
+  <!-- ============================== HERO ================================= -->
+  <main class="main" id="main">
+    <section class="hero">
+      <div class="hero__bg" aria-hidden="true"></div>
+      <div class="container hero__inner">
+        <p class="hero__eyebrow">🇮🇳 Digital India Initiative • CSC e-Governance</p>
+        <h1 class="hero__title">{{ SITE.title }}</h1>
+        <p class="hero__subtitle">{{ SITE.subtitle }}</p>
+        <p class="hero__hi">
+          सभी ज़रूरी दस्तावेज़ प्रोसेसिंग और उपयोगिता टूल्स — अब एक ही जगह, बिल्कुल तेज़ और पूरी तरह निजी।
+        </p>
+
+        <form class="search" role="search" onsubmit="return false;">
+          <svg class="ico search__ico" aria-hidden="true"><use href="#i-search"></use></svg>
+          <input class="search__input" id="toolSearch" type="search"
+                 placeholder="टूल खोजें… e.g. passport, PDF, age, aadhaar"
+                 autocomplete="off" aria-label="Search tools" />
+          <kbd class="search__kbd">/</kbd>
+        </form>
+
+        <div class="hero__stats">
+          <div class="stat"><span class="stat__num">{{ STATS.total }}+</span><span class="stat__lbl">Total Tools</span></div>
+          <div class="stat"><span class="stat__num">{{ STATS.portals }}+</span><span class="stat__lbl">Official Portals</span></div>
+          <div class="stat"><span class="stat__num">{{ STATS.stored }}</span><span class="stat__lbl">Files Stored</span></div>
+          <div class="stat"><span class="stat__num">24×7</span><span class="stat__lbl">Free Access</span></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="container">
+      <p class="search-status" id="searchStatus" hidden></p>
+    </div>
+
+    <!-- ======================= TOOL CATEGORY SECTIONS ====================== -->
+    {% for cat, items in GROUPED %}
+    <section class="section" id="{{ cat.id }}" data-section="{{ cat.id }}">
+      <div class="container">
+        <header class="section-head">
+          <p class="eyebrow">Category {{ loop.index }} of {{ GROUPED|length }}</p>
+          <h2 class="section-head__title">{{ cat.label }}</h2>
+          <p class="section-head__hi">{{ cat.label_hi }}</p>
+          <p class="section-head__desc">{{ cat.description }}</p>
+        </header>
+
+        <div class="card-grid">
+          {% for t in items %}
+          <article class="tool-card accent-{{ t.accent }}"
+                   data-search="{{ t.name }} {{ t.name_hi }} {{ t.summary }} {{ t.keywords }} {{ cat.label }} {{ t.tag }}"
+                   style="--i: {{ loop.index0 }}">
+            <div class="tool-card__top">
+              <span class="tool-arch" aria-hidden="true">
+                <span class="tool-arch__ring"></span>
+                <svg class="ico"><use href="#i-{{ t.icon }}"></use></svg>
+              </span>
+              {% if t.badge %}<span class="chip chip--{{ t.accent }}">{{ t.badge }}</span>{% endif %}
+            </div>
+
+            <h3 class="tool-card__title">{{ t.name }}</h3>
+            <p class="tool-card__hi">{{ t.name_hi }}</p>
+            <p class="tool-card__desc">{{ t.summary }}</p>
+
+            <div class="tool-card__foot">
+              <span class="tag">{{ t.tag }}</span>
+              {% if t.kind == 'internal' %}
+                <a class="btn btn--{{ t.accent }}" href="{{ url_for('tool_view', slug=t.slug) }}">
+                  Open Tool <svg class="ico" aria-hidden="true"><use href="#i-arrow"></use></svg>
+                </a>
+              {% else %}
+                <a class="btn btn--{{ t.accent }}" href="{{ t.url }}" target="_blank" rel="noopener noreferrer">
+                  Open Portal <svg class="ico" aria-hidden="true"><use href="#i-external"></use></svg>
+                </a>
+              {% endif %}
+            </div>
+          </article>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+    {% endfor %}
+
+    <!-- ============================= CONTACT ============================== -->
+    <section class="section section--alt" id="contact">
+      <div class="container">
+        <header class="section-head">
+          <p class="eyebrow">Get in touch</p>
+          <h2 class="section-head__title">Contact / संपर्क</h2>
+          <p class="section-head__hi">किसी भी टूल में समस्या आए या कोई नया टूल चाहिए?</p>
+          <p class="section-head__desc">सीधे संपर्क करें — कोई फॉर्म नहीं, कोई इंतज़ार नहीं।</p>
+        </header>
+
+        <div class="contact-grid">
+          <article class="contact-card">
+            <span class="contact-card__icon"><svg class="ico" aria-hidden="true"><use href="#i-user"></use></svg></span>
+            <h3 class="contact-card__title">{{ OWNER.name }}</h3>
+            <p class="contact-card__role">{{ OWNER.role }}</p>
+          </article>
+          <a class="contact-card" href="tel:{{ OWNER.phone_raw }}">
+            <span class="contact-card__icon"><svg class="ico" aria-hidden="true"><use href="#i-phone"></use></svg></span>
+            <h3 class="contact-card__title">{{ OWNER.phone }}</h3>
+            <p class="contact-card__role">Phone / फोन</p>
+          </a>
+          <a class="contact-card" href="mailto:{{ OWNER.email }}">
+            <span class="contact-card__icon"><svg class="ico" aria-hidden="true"><use href="#i-mail"></use></svg></span>
+            <h3 class="contact-card__title">{{ OWNER.email }}</h3>
+            <p class="contact-card__role">Email / ईमेल</p>
+          </a>
+          <a class="contact-card contact-card--wa" href="{{ OWNER.whatsapp }}" target="_blank" rel="noopener noreferrer">
+            <span class="contact-card__icon"><svg class="ico" aria-hidden="true"><use href="#i-whatsapp"></use></svg></span>
+            <h3 class="contact-card__title">WhatsApp करें</h3>
+            <p class="contact-card__role">Direct message — {{ OWNER.phone }}</p>
+          </a>
+          <div class="contact-card">
+            <span class="contact-card__icon"><svg class="ico" aria-hidden="true"><use href="#i-pin"></use></svg></span>
+            <h3 class="contact-card__title">{{ OWNER.centre }}</h3>
+            <p class="contact-card__role">{{ OWNER.city }}</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============================== FOOTER ============================== -->
+  <footer class="footer">
+    <div class="container footer__grid">
+      <div class="footer__col">
+        <span class="brand brand--footer">
+          <span class="brand__logo" aria-hidden="true">
+            <svg viewBox="0 0 128 128" width="40" height="40">
+              <rect x="4" y="4" width="120" height="120" rx="28" fill="#0F2942" />
+              <rect x="4" y="4" width="120" height="120" rx="28" fill="none" stroke="#FF9933" stroke-width="6" />
+              <text x="64" y="80" text-anchor="middle" font-family="Arial, sans-serif"
+                    font-size="42" font-weight="800" fill="#FFFFFF">RK</text>
+            </svg>
+          </span>
+          <span class="brand__text">
+            <span class="brand__name">{{ SITE.name }}</span>
+            <span class="brand__badge">{{ SITE.badge }}</span>
+          </span>
+        </span>
+        <p class="footer__about">
+          CSC / जन सेवा केंद्र ऑपरेटर्स के लिए बनाया गया डिजिटल उपयोगिता पोर्टल —
+          दस्तावेज़ टूल्स, इमेज टूल्स, सरकारी पोर्टल लिंक, योजनाएँ और कैलकुलेटर एक ही जगह।
+        </p>
+        <address class="footer__owner">
+          <strong>{{ OWNER.name }}</strong><br />
+          {{ OWNER.role }}<br />
+          <a href="tel:{{ OWNER.phone_raw }}">{{ OWNER.phone }}</a><br />
+          <a href="mailto:{{ OWNER.email }}">{{ OWNER.email }}</a>
+        </address>
+      </div>
+
+      <div class="footer__col">
+        <h4 class="footer__title">Document &amp; Image Tools</h4>
+        <ul class="footer__links">
+          {% for t in INTERNAL_TOOLS %}
+            <li><a href="{{ url_for('tool_view', slug=t.slug) }}">{{ t.name }}</a></li>
+          {% endfor %}
+        </ul>
+      </div>
+
+      <div class="footer__col">
+        <h4 class="footer__title">Portals &amp; Schemes</h4>
+        <ul class="footer__links">
+          {% for t in EXTERNAL_TOOLS %}
+            <li><a href="{{ t.url }}" target="_blank" rel="noopener noreferrer">{{ t.name }}</a></li>
+          {% endfor %}
+        </ul>
+      </div>
+
+      <div class="footer__col">
+        <h4 class="footer__title">Quick Navigation</h4>
+        <ul class="footer__links">
+          <li><a href="#document">Document Tools</a></li>
+          <li><a href="#image">Image Tools</a></li>
+          <li><a href="#portals">Direct Portals</a></li>
+          <li><a href="#schemes">Schemes &amp; Services</a></li>
+          <li><a href="#calculators">Calculators</a></li>
+          <li><a href="#contact">Contact</a></li>
+        </ul>
+        <h4 class="footer__title footer__title--spaced">Disclaimer / अस्वीकरण</h4>
+        <p class="footer__disclaimer">{{ SITE.disclaimer }}</p>
+      </div>
+    </div>
+
+    <div class="container footer__tagline-wrap">
+      <div class="trust-seal" id="trustSeal">
+        <span class="trust-seal__emblem" aria-hidden="true">
+          <svg class="ico"><use href="#i-seal"></use></svg>
+        </span>
+        <div class="trust-seal__body">
+          <p class="trust-seal__line">
+            <span class="trust-seal__strike">सरकारी नहीं</span>
+            <span class="trust-seal__sep">पर</span>
+            <span class="trust-seal__claim">दावा ईमानदार।</span>
+          </p>
+          <p class="trust-seal__en">{{ SITE.tagline_en }}</p>
+        </div>
+        <ul class="trust-seal__marks">
+          {% for m in SITE.tagline_marks %}
+            <li><svg class="ico" aria-hidden="true"><use href="#i-check"></use></svg>{{ m }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer__bottom">
+      <div class="container footer__bottom-inner">
+        <p>© {{ SITE.year }} {{ SITE.name }}. All Rights Reserved.</p>
+        <p>Made in India 🇮🇳 • Not a Government website</p>
+      </div>
+    </div>
+  </footer>
+
+  <button class="to-top" id="toTop" type="button" aria-label="ऊपर जाएँ">
+    <svg class="ico" aria-hidden="true"><use href="#i-arrow"></use></svg>
+  </button>
+
+  <a class="wa-float" id="waFloat" href="{{ OWNER.whatsapp }}"
+     target="_blank" rel="noopener noreferrer" aria-label="WhatsApp par message karein">
+    <span class="wa-float__ring" aria-hidden="true"></span>
+    <svg class="ico" aria-hidden="true"><use href="#i-whatsapp"></use></svg>
+    <span class="wa-float__label">WhatsApp</span>
+  </a>
+
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+    {% for name, body in ICONS.items() %}
+    <symbol id="i-{{ name }}" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">{{ body|safe }}</symbol>
+    {% endfor %}
+  </svg>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
