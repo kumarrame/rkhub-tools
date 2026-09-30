@@ -1530,31 +1530,35 @@ html[data-theme="dark"] .contact-card--wa .contact-card__icon { color: #4BE08A; 
 .contact-card .contact-card__icon { transition: transform .28s var(--ease), background .22s var(--ease); }
 .contact-card:hover .contact-card__icon { transform: rotate(-10deg) scale(1.12); }
 
-/* Neon animated border. Registering the angle as a real property is what lets
-   the conic gradient interpolate smoothly; without it the ring jumps between
-   keyframes instead of flowing. */
-@property --neon-angle {
-  syntax: "<angle>";
-  inherits: false;
-  initial-value: 0deg;
-}
-.contact-card::before {
-  content: "";
-  position: absolute;
-  inset: -2px;
-  padding: 2px;
-  border-radius: calc(var(--radius) + 2px);
-  background: conic-gradient(from var(--neon-angle),
-    #00E5FF, #7C4DFF, #FF2E9A, #00FF9C, #FFD400, #00E5FF);
-  /* Keep only the 2px rim: mask everything except the padding box. */
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  mask-composite: exclude;
-  animation: neonSpin 5s linear infinite;
-  opacity: .85;
-  z-index: -1;
-  pointer-events: none;
+/* Neon animated border.
+   The ring is a border-box gradient on a pseudo-element that exactly overlays
+   the card, with an opaque padding-box fill on top. That is the canonical
+   gradient-border technique: no mask-composite, and the thickness is the
+   `border` width rather than an inset/padding subtraction that silently eats
+   the ring (an earlier `inset: -2px` version resolved against the padding box
+   and left barely a pixel visible outside the card).
+   Registering the angle as a real property is what lets the conic gradient
+   interpolate smoothly; without it the ring jumps between keyframes. */
+@supports (background: conic-gradient(from 0deg, red, blue)) {
+  @property --neon-angle {
+    syntax: "<angle>";
+    inherits: false;
+    initial-value: 0deg;
+  }
+  .contact-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border: 4px solid transparent;
+    border-radius: var(--radius);
+    background:
+      linear-gradient(var(--surface), var(--surface)) padding-box,
+      conic-gradient(from var(--neon-angle),
+        #00E5FF, #7C4DFF, #FF2E9A, #00FF9C, #FFD400, #00E5FF) border-box;
+    animation: neonSpin 5s linear infinite;
+    z-index: -1;
+    pointer-events: none;
+  }
 }
 @keyframes neonSpin {
   to { --neon-angle: 360deg; }
@@ -1564,7 +1568,9 @@ html[data-theme="dark"] .contact-card--wa .contact-card__icon { color: #4BE08A; 
               0 0 34px rgba(255, 46, 154, .22),
               var(--shadow-md);
 }
-.contact-card:hover::before, .contact-card:focus-within::before { opacity: 1; }
+.contact-card:hover::before, .contact-card:focus-within::before {
+  filter: saturate(1.25) brightness(1.1);
+}
 
 /* Stagger the five cards so they are not all in phase. */
 .contact-grid > .contact-card:nth-child(2)::before { animation-delay: -1s; }
@@ -1708,7 +1714,7 @@ html[data-theme="dark"] .contact-card--wa .contact-card__icon { color: #4BE08A; 
   }
   .ticker__track { animation: none; }
   /* freeze the neon rings at a readable angle instead of 0.001ms churn */
-  .contact-card::before { --neon-angle: 210deg; opacity: .5; }
+  .contact-card::before { --neon-angle: 210deg; }
 }
 
 @media print {
