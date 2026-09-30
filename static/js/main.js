@@ -158,6 +158,28 @@
 
     input.addEventListener("input", run);
 
+    /* Pressing Enter must not submit the form.
+       The template used to carry an inline onsubmit="return false;" but that
+       needs 'unsafe-inline' in script-src, which the CSP forbids. The handler
+       was dropped without being replaced here, so Enter performed a real form
+       GET and reloaded the page, losing the filter. Bind it now instead. */
+    var form = input.form || $("[data-search-form]");
+    if (form) {
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        run();
+        // Bring the first surviving result into view so Enter feels like it
+        // did something, without yanking the page on an already-visible hit.
+        var first = $(".tool-card:not(.is-hidden)");
+        if (first) {
+          var box = first.getBoundingClientRect();
+          if (box.top < 0 || box.top > window.innerHeight) {
+            first.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        }
+      });
+    }
+
     // "/" focuses the search box.
     document.addEventListener("keydown", function (e) {
       var tag = (e.target.tagName || "").toLowerCase();

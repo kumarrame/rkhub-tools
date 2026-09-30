@@ -1,10 +1,15 @@
 """
 ================================================================================
-  RKHUB Tools — Digital India & CSC Services Utility Portal
+  RKHUB Tools — Independent Digital Utilities Hub
   Backend  : Flask (Python 3)
-  Audience : CSC (Common Service Centre) / Jan Seva Kendra operators
+  Audience : Common Service Centre (CSC) / Jan Seva Kendra operators
   Privacy  : Every tool runs 100% client-side (Canvas + FileReader).
              No document is ever uploaded to or stored on this server.
+
+  Trademark note: "Digital India", "CSC", "Common Service Centre" and
+  "Jan Seva Kendra" are marks/proper names of third parties. This project
+  uses them only descriptively, to identify its intended audience and the
+  official portals it links to. See NOTICE.md.
 ================================================================================
   Run:
       pip install -r requirements.txt
@@ -14,17 +19,108 @@
 """
 
 import datetime as _dt
+import gzip
+import ipaddress
+import os
+import secrets
+import time
 
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify, redirect, render_template, request
 
 # ==============================================================================
 # APP FACTORY
 # ==============================================================================
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = "rkhub-tools-csc-utility-hub-2026"
+
+# Never ship a checked-in secret. In production, set SECRET_KEY in the
+# environment. The random fallback is safe because it is regenerated on every
+# restart, which simply invalidates old sessions instead of failing loudly.
+_ENV_SECRET = os.environ.get("SECRET_KEY", "").strip()
+app.config["SECRET_KEY"] = _ENV_SECRET or secrets.token_hex(32)
+
 # Nothing is ever POSTed, but keep a hard ceiling just in case.
 app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024  # 32 MB
+
+# Debug mode must never default to on: the Werkzeug debugger exposes a console
+# that can execute arbitrary Python if an error page is ever reached.
+app.config["DEBUG"] = os.environ.get("FLASK_DEBUG", "0") == "1"
+
+# Reject requests whose Host header is not on the allow-list (mitigates
+# host-header poisoning and cache-poisoning via absolute URL generation).
+_trusted_hosts = [
+    h.strip()
+    for h in os.environ.get("TRUSTED_HOSTS", "").split(",")
+    if h.strip()
+]
+if _trusted_hosts:
+    app.config["TRUSTED_HOSTS"] = _trusted_hosts
+
+# Trust X-Forwarded-For for client identification. MUST be enabled on any
+# platform that fronts the app with a proxy (Render, Railway, Fly, nginx),
+# otherwise every visitor shares the proxy's remote_addr and the rate limiter
+# treats the entire internet as one client. See _client_key().
+#
+# Only safe because the platform overwrites the header on ingress. Leave it
+# off when the app is exposed directly, or a client could spoof its address
+# and bypass the limiter entirely.
+app.config["TRUST_PROXY"] = os.environ.get("TRUST_PROXY", "0") == "1"
+
+# Compress HTML/CSS/JS/JSON. The vendored JS libs are large and highly
+# compressible, so this is the single biggest latency win available.
+#
+# Flask has no built-in gzip and Werkzeug does not ship a GzipMiddleware (that
+# import would raise ModuleNotFoundError on every boot), so compression is done
+# in after_request below instead. It costs a little CPU per response but keeps
+# the dependency list at exactly one package.
+GZIP_MIN_BYTES = 500
+GZIP_CONTENT_TYPES = (
+    "text/",
+    "application/javascript",
+    "application/json",
+    "application/xml",
+    "image/svg+xml",
+)
+
+# Emit security headers on every response. Applied in after_request rather than
+# per-route so a new route cannot accidentally ship without them.
+CSP = "; ".join(
+    [
+        "default-src 'self'",
+        "base-uri 'self'",
+        "object-src 'none'",
+        # 'unsafe-inline' is required for the per-tool style="--accent:..." and
+        # width/height attributes emitted by the Jinja templates, and for the
+        # existing inline JSON bootstrap payload in main.js. Script-src stays
+        # strict with NO 'unsafe-inline' and NO 'unsafe-eval'.
+        "script-src 'self'",
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' data: blob:",
+        "font-src 'self'",
+        # All tooling is client-side, so no outbound connections are expected.
+        "connect-src 'self'",
+        "form-action 'self'",
+        "frame-ancestors 'none'",
+        "manifest-src 'self'",
+        "upgrade-insecure-requests",
+    ]
+)
+
+# Cache policy for static assets. HTML must stay revalidatable so a deploy is
+# visible immediately.
+#
+# The static filenames are NOT content-hashed (they are plain style.css,
+# main.js, tools.js), so a long "immutable" max-age is deliberately NOT used:
+# it would let a returning visitor keep a stale copy of main.js for a year
+# with no revalidation, which is how a deploy silently fails to reach users.
+#
+# A short max-age plus must-revalidate gets almost all of the benefit: repeat
+# views inside the window are served from cache with no request at all, and
+# the first view after a deploy gets a cheap 304 from the ETag that send_file
+# already sets. Raising this to a year is only safe once the URLs carry a
+# content hash (e.g. style.<hash>.css).
+_STATIC_CACHE = "public, max-age=600, must-revalidate"
+_HTML_CACHE = "no-cache"
 
 
 # ==============================================================================
@@ -55,18 +151,33 @@ OWNER["whatsapp_api"] = "https://api.whatsapp.com/send?phone=%s&text=%s" % (
 
 SITE = {
     "name": "RKHUB Tools",
-    "badge": "CSC Utility Hub",
-    "title": "RKHUB Tools — Digital India & CSC Services Utility Portal",
-    "subtitle": "All essential daily CSC document processing & utility tools in one place.",
+    "badge": "Operator Utility Hub",
+    # "Digital India" is a registered trademark of MeitY/NeGD and its usage
+    # guidelines prohibit using the name as a product or service name. It is
+    # deliberately absent from the title. Scheme names below are used purely
+    # descriptively, to identify the official portals that are linked.
+    "title": "RKHUB Tools — Independent Digital Utilities Hub",
+    "subtitle": "All essential daily operator document & utility tools in one place.",
     "tagline_hi": "सरकारी नहीं, पर दावा ईमानदार।",
     "tagline_en": "Not a Government website — but honest about it.",
-    "tagline_marks": ["100% Client-Side", "0 Files Stored", "Made in India"],
+    # Note: "Made in India" is a Government of India trademarked certification
+    # mark that normally requires registration. The owner's decision is to keep
+    # the plain-text footer credit in templates/index.html rather than drop it,
+    # so the mark is not restyled into a certification claim anywhere (no logo,
+    # no badge). These three badges are the unambiguous alternative.
+    "tagline_marks": ["100% Client-Side", "0 Files Stored", "No Sign-Up"],
     "disclaimer": (
         "RKHUB Tools is NOT a Government website and is not affiliated with, "
-        "endorsed by, or connected to any Government department, agency or "
-        "public body. It is an independent utility platform built purely to "
-        "help CSC / Jan Seva Kendra operators."
+        "endorsed by, sponsored by, or connected to any Government department, "
+        "agency, or public body. It is an independent utility platform built to "
+        "help service-centre operators. References to government schemes and "
+        "portals are descriptive only; all official work happens on the "
+        "respective Government portal."
     ),
+    # Used to build absolute URLs for robots.txt and sitemap.xml.
+    "canonical": os.environ.get(
+        "CANONICAL_URL", "https://rkhub-tools.onrender.com"
+    ).rstrip("/"),
     "year": _dt.date.today().year,
 }
 
@@ -441,8 +552,17 @@ TOOLS = [
         "accent": "navy",
         "badge": "CR80",
         "tag": "Card",
-        "summary": "Photo, naam, DOB, blood group ke saath printable PVC card banayein — CR80 size.",
-        "keywords": "pvc card id card maker cr80 visiting card aadhaar pan voter design print",
+        # Deliberately positioned as an organisation / membership / event card
+        # generator. The previous copy invited use as a counterfeit government
+        # ID, which carries trademark, consumer-protection and criminal risk.
+        "summary": (
+            "Organisation, membership, event ya staff ke liye printable CR80 "
+            "PVC card banayein — koi Government ID nahi."
+        ),
+        "keywords": (
+            "pvc card id card maker cr80 membership staff event library "
+            "organisation card design print blank card template"
+        ),
         "kind": "internal",
     },
 
@@ -777,6 +897,7 @@ TOOLS = [
 # ==============================================================================
 
 _CAT_IDS = {c["id"] for c in CATEGORIES}
+_CAT_BY_ID = {c["id"]: c for c in CATEGORIES}
 
 
 def tools_by_cat():
@@ -795,6 +916,239 @@ def find_tool(slug):
     return None
 
 
+# ==============================================================================
+# RATE LIMITING
+# ==============================================================================
+#  Windowed request counter kept in process memory. This is intentionally
+#  dependency-free and works correctly for a single-process deployment
+#  (gunicorn 1 worker + threads, see Procfile). If the app is ever scaled
+#  horizontally, swap this for a shared store such as Redis.
+#
+#  Note this is a fixed window anchored at a client's first request, not a
+#  true sliding window: the bucket resets once the window elapses regardless of
+#  the individual timestamps inside it. The consequence is a theoretical 2x
+#  burst across a window boundary (limit at the end of one window, then limit
+#  again immediately after the reset). That trade-off is accepted here because
+#  the limiter exists to bound CPU abuse, not to enforce a hard quota.
+#
+#  Worker count matters here. The bucket dict is per-process, so N workers
+#  means N independent limiters and the effective ceiling becomes
+#  N x the number below. With --workers 2 the documented "120 page views per
+#  minute" was silently 240, and no single visitor's traffic was ever visible
+#  to the other worker. The Procfile therefore pins one worker with threads.
+#
+#  Design goals:
+#    * Protect the server from being used as a free CPU/memory amplifier.
+#    * Never punish the normal visitor: a page view plus a few static assets
+#      must stay comfortably under the ceiling, and a rate-limited response
+#      must be short-circuited BEFORE any template is rendered.
+# ==============================================================================
+
+RATE_LIMIT = {
+    # Health checks are called by the platform's uptime monitor, so they are
+    # deliberately exempt.
+    "exempt_paths": {"/api/health"},
+    # Per-window limits. The window is a fixed 60 seconds.
+    "window": 60,
+    "limits": {
+        # HTML pages: cheap to serve, so allow generous headroom for a human
+        # clicking through tools.
+        "page": 120,
+        # Static assets: a single page load requests several; allow a lot.
+        "static": 600,
+        # JSON/redirect endpoints: tightest, since nothing legitimate loops here.
+        "api": 60,
+    },
+    # Cap the number of tracked client keys so a spoofed-IP flood cannot grow
+    # the dict without bound (memory-exhaustion vector).
+    "max_tracked_clients": 8192,
+}
+
+# path -> (window_start, [timestamps])
+_rate_buckets: dict = {}
+_rate_last_sweep = time.monotonic()
+
+
+def _valid_ip(value: str) -> bool:
+    """True if value is a bare IPv4/IPv6 address.
+
+    Used to reject junk before it becomes a dict key. Without this check an
+    attacker can send an arbitrary X-Forwarded-For and mint an unlimited
+    number of rate-limit buckets, which both defeats the limiter and burns
+    memory.
+    """
+    if not value or len(value) > 45:
+        return False
+    for ch in value:
+        if ch not in "0123456789abcdefABCDEF.:%[] ":
+            return False
+    try:
+        ipaddress.ip_address(value)
+    except ValueError:
+        return False
+    return True
+
+
+def _client_key() -> str:
+    """Best-effort client identity.
+
+    Behind a reverse proxy (Render, any PaaS) every request shares one
+    remote_addr, so the limiter would treat the whole internet as a single
+    client and lock out real visitors. When TRUST_PROXY is on, the left-most
+    X-Forwarded-For entry is the original client.
+
+    Trusting that header is only safe because the platform strips and
+    rewrites it on the way in; a directly exposed origin would let a client
+    spoof any address and escape the limiter entirely. That is exactly why
+    this stays off unless the deployment explicitly turns it on.
+    """
+    if app.config.get("TRUST_PROXY"):
+        forwarded = request.headers.get("X-Forwarded-For", "")
+        if forwarded:
+            # Left-most entry is the original client; the rest were appended
+            # by each proxy in the chain.
+            candidate = forwarded.split(",")[0].strip()
+            if _valid_ip(candidate):
+                return candidate
+            # Malformed header: fall through to remote_addr rather than
+            # bucketing every junk value separately.
+    return request.remote_addr or "unknown"
+
+
+def _limit_for(path: str) -> int:
+    if path.startswith("/static/"):
+        return RATE_LIMIT["limits"]["static"]
+    if path.startswith("/api/"):
+        return RATE_LIMIT["limits"]["api"]
+    return RATE_LIMIT["limits"]["page"]
+
+
+@app.before_request
+def apply_rate_limit():
+    # _rate_last_sweep is rebound below, so it must be declared global. Without
+    # this, Python treats the name as function-local and every request raises
+    # UnboundLocalError. _rate_buckets is only mutated, never rebound, so it
+    # needs no declaration.
+    global _rate_last_sweep
+
+    if app.config.get("DEBUG"):
+        return None
+    path = request.path
+    if path in RATE_LIMIT["exempt_paths"]:
+        return None
+
+    now = time.monotonic()
+    window = RATE_LIMIT["window"]
+    limit = _limit_for(path)
+    key = (path.split("/")[1] if path.startswith("/") else "", _client_key())
+
+    # Periodic sweep so stale buckets do not accumulate.
+    if now - _rate_last_sweep > window:
+        cutoff = now - window
+        stale = [k for k, v in _rate_buckets.items() if v[0] <= cutoff]
+        for k in stale:
+            _rate_buckets.pop(k, None)
+        _rate_last_sweep = now
+
+    start, hits = _rate_buckets.get(key, (now, []))
+
+    if len(_rate_buckets) >= RATE_LIMIT["max_tracked_clients"] and key not in _rate_buckets:
+        # Fail open rather than grow unbounded; the bucket cap is a memory
+        # guard, not an abuse decision.
+        return None
+
+    if now - start >= window:
+        start, hits = now, []
+
+    hits.append(now)
+
+    if len(hits) > limit:
+        retry_after = max(1, int(window - (now - start)) + 1)
+        resp = jsonify({"error": "rate_limited", "retry_after_seconds": retry_after})
+        resp.status_code = 429
+        resp.headers["Retry-After"] = str(retry_after)
+        return resp
+
+    _rate_buckets[key] = (start, hits)
+    return None
+
+
+@app.after_request
+def apply_gzip(resp):
+    """Compress the response body when the client accepts gzip.
+
+    Static files arrive from send_file with direct_passthrough=True and an
+    unbuffered file wrapper. That wrapper cannot be compressed, but the
+    vendored JS is exactly the payload worth compressing, so the flag is
+    cleared and the body is materialised before compressing. The files are
+    capped by MAX_CONTENT_LENGTH concerns only in the sense that they are
+    build-time assets of known size (largest is ~525 kB), so buffering is
+    bounded and safe here.
+    """
+    if "gzip" not in request.headers.get("Accept-Encoding", ""):
+        return resp
+    if resp.headers.get("Content-Encoding"):
+        return resp
+    if resp.status_code < 200 or resp.status_code in (204, 304):
+        return resp
+    if not (resp.mimetype or "").startswith(GZIP_CONTENT_TYPES):
+        return resp
+
+    if resp.direct_passthrough:
+        # Materialise the file wrapper so the body can be read and replaced.
+        resp.direct_passthrough = False
+
+    data = resp.get_data()
+    if len(data) < GZIP_MIN_BYTES:
+        return resp
+
+    compressed = gzip.compress(data, compresslevel=6)
+    # Only worth it if we actually saved something meaningful.
+    if len(compressed) >= len(data):
+        return resp
+
+    resp.set_data(compressed)
+    resp.headers["Content-Encoding"] = "gzip"
+    resp.headers["Content-Length"] = str(len(compressed))
+    # Caches must key on Accept-Encoding now that the body varies by it.
+    resp.headers.add("Vary", "Accept-Encoding")
+    return resp
+
+
+@app.after_request
+def apply_security_headers(resp):
+    resp.headers.setdefault("Content-Security-Policy", CSP)
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resp.headers.setdefault("X-Frame-Options", "DENY")
+    resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    resp.headers.setdefault(
+        "Permissions-Policy",
+        "accelerometer=(), camera=(), geolocation=(), gyroscope=(), "
+        "magnetometer=(), microphone=(), payment=(), usb=()",
+    )
+    resp.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+    resp.headers.setdefault("Cross-Origin-Resource-Policy", "same-origin")
+    resp.headers.setdefault("X-Robots-Tag", "index, follow")
+
+    # Only meaningful over TLS; harmless and cheap over plain HTTP.
+    resp.headers.setdefault(
+        "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+    )
+
+    if request.path.startswith("/static/"):
+        # Assign, do not setdefault: Flask's send_file() has already set its
+        # own Cache-Control, so setdefault() would silently do nothing and the
+        # policy below would never take effect.
+        resp.headers["Cache-Control"] = _STATIC_CACHE
+    else:
+        # setdefault is correct here: routes such as robots.txt and
+        # sitemap.xml deliberately set their own longer cache, and that
+        # must not be clobbered.
+        resp.headers.setdefault("Cache-Control", _HTML_CACHE)
+
+    return resp
+
+
 @app.context_processor
 def inject_globals():
     grouped = tools_by_cat()
@@ -808,6 +1162,7 @@ def inject_globals():
         "TOOLS": TOOLS,
         "ICONS": ICONS,
         "GROUPED": grouped,
+        "CATEGORY_BY_ID": _CAT_BY_ID,
         "INTERNAL_TOOLS": internal,
         "EXTERNAL_TOOLS": external,
         "STATS": {
@@ -836,7 +1191,8 @@ def tool_view(slug):
         return render_template("tool_view.html", page="tool", tool=None, notfound=True), 404
     if tool["kind"] == "external":
         # External portals never need a workspace page — bounce to the portal.
-        from flask import redirect
+        # Only the allow-listed tool["url"] values are ever redirected to, and
+        # those are hardcoded HTTPS government/portal URLs, never user input.
         return redirect(tool["url"], code=302)
     return render_template("tool_view.html", page="tool", tool=tool, notfound=False)
 
@@ -847,7 +1203,7 @@ def api_health():
         {
             "status": "ok",
             "app": SITE["name"],
-            "version": "1.0.0",
+            "version": "2.0.0",
             "tools": len(TOOLS),
             "internal": len([t for t in TOOLS if t["kind"] == "internal"]),
             "external": len([t for t in TOOLS if t["kind"] == "external"]),
@@ -856,9 +1212,78 @@ def api_health():
     )
 
 
+@app.route("/robots.txt")
+def robots_txt():
+    body = (
+        "User-agent: *\n"
+        "Allow: /\n"
+        "Disallow: /api/\n"
+        "\n"
+        f"Sitemap: {SITE['canonical']}/sitemap.xml\n"
+    )
+    resp = app.response_class(body, mimetype="text/plain; charset=utf-8")
+    resp.headers["Cache-Control"] = "public, max-age=86400"
+    return resp
+
+
+@app.route("/sitemap.xml")
+def sitemap_xml():
+    urls = [f"  <url><loc>{SITE['canonical']}/</loc>"
+            f"<changefreq>weekly</changefreq>"
+            f"<priority>1.0</priority></url>"]
+    for t in TOOLS:
+        if t["kind"] == "internal":
+            urls.append(f"  <url><loc>{SITE['canonical']}/tool/{t['slug']}</loc>"
+                        f"<changefreq>monthly</changefreq>"
+                        f"<priority>0.7</priority></url>")
+    body = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        + "\n".join(urls)
+        + "\n</urlset>\n"
+    )
+    resp = app.response_class(body, mimetype="application/xml; charset=utf-8")
+    resp.headers["Cache-Control"] = "public, max-age=86400"
+    return resp
+
+
 @app.errorhandler(404)
 def handle_404(_err):
     return render_template("tool_view.html", page="404", tool=None, notfound=True), 404
+
+
+@app.errorhandler(413)
+def handle_413(_err):
+    return (
+        "<!doctype html><meta charset=utf-8>"
+        "<title>Request too large</title>"
+        "<p style='font:16px system-ui;padding:2rem'>"
+        "This request exceeds the 32&nbsp;MB limit.</p>",
+        413,
+    )
+
+
+@app.errorhandler(429)
+def handle_429(_err):
+    return (
+        "<!doctype html><meta charset=utf-8>"
+        "<title>Too many requests</title>"
+        "<p style='font:16px system-ui;padding:2rem'>"
+        "Too many requests. Please wait a moment and try again.</p>",
+        429,
+    )
+
+
+@app.errorhandler(500)
+def handle_500(_err):
+    """Never leak a stack trace or config value to the browser."""
+    return (
+        "<!doctype html><meta charset=utf-8>"
+        "<title>Server error</title>"
+        "<p style='font:16px system-ui;padding:2rem'>"
+        "Something went wrong on our side. Please try again.</p>",
+        500,
+    )
 
 
 # ==============================================================================
@@ -866,10 +1291,16 @@ def handle_404(_err):
 # ==============================================================================
 
 if __name__ == "__main__":
+    _internal = len([t for t in TOOLS if t["kind"] == "internal"])
+    _external = len([t for t in TOOLS if t["kind"] == "external"])
     print("=" * 62)
     print(f"  {SITE['name']}  ->  http://127.0.0.1:5000")
     print(f"  Owner  : {OWNER['name']}  |  {OWNER['phone']}")
-    print(f"  Tools  : {len(TOOLS)} total  ({len([t for t in TOOLS if t['kind'] == 'internal'])} internal / "
-          f"{len([t for t in TOOLS if t['kind'] == 'external'])} portals)")
+    print(f"  Tools  : {len(TOOLS)} total  ({_internal} internal / {_external} portals)")
+    if not _ENV_SECRET:
+        print("  Note   : SECRET_KEY not set - using an ephemeral random key.")
+    if app.config["DEBUG"]:
+        print("  WARNING: FLASK_DEBUG=1 is active. Never do this in production.")
     print("=" * 62)
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    # Local development only. Production uses gunicorn (see Procfile).
+    app.run(host="127.0.0.1", port=5000, debug=app.config["DEBUG"])

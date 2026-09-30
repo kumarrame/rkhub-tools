@@ -21,11 +21,24 @@
       if (document.querySelector('script[src="' + src + '"]')) return resolve();
       var s = document.createElement("script");
       s.src = src;
+      s.async = false;
       s.onload = resolve;
       s.onerror = function () { reject(new Error("Failed to load " + src)); };
       document.head.appendChild(s);
     });
   }
+
+  /* Heavy libraries are served from this origin, not a CDN.
+     Why: a CDN tag means every visitor's IP, UA and referrer leak to a third
+     party (directly contradicting the "nothing leaves your device" claim on
+     the site), plus three extra DNS/TLS round-trips before a tool can run.
+     Same-origin also lets the CSP stay strict (script-src 'self') and lets the
+     files be served with a one-year immutable cache header.
+     See THIRD_PARTY_NOTICES.md for versions, licences and integrity hashes. */
+  var VENDOR = {
+    pdfLib: "/static/vendor/pdf-lib.min.js",
+    jspdf: "/static/vendor/jspdf.umd.min.js"
+  };
 
   function fmtBytes(n) {
     if (!isFinite(n) || n < 0) return "—";
@@ -559,7 +572,7 @@
         var label = btn.innerHTML;
         btn.textContent = "Compressing…";
 
-        loadScript("https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js")
+        loadScript(VENDOR.pdfLib)
           .then(function () {
             var PDFLib = window.PDFLib;
             if (!PDFLib) throw new Error("pdf-lib unavailable");
@@ -693,7 +706,7 @@
         btn.textContent = "Creating PDF…";
         showBusy("PDF banaya ja raha hai…");
 
-        loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js")
+        loadScript(VENDOR.jspdf)
           .then(function () {
             var jsPDFctor = window.jspdf && window.jspdf.jsPDF;
             if (!jsPDFctor) throw new Error("jsPDF library load nahi hui — internet check karein.");
@@ -1192,7 +1205,7 @@
         var label = pdfBtn.innerHTML;
         pdfBtn.textContent = "PDF बना रहे हैं…";
 
-        loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js")
+        loadScript(VENDOR.jspdf)
           .then(function () {
             var ctor = window.jspdf && window.jspdf.jsPDF;
             if (!ctor) throw new Error("jsPDF unavailable");
@@ -1244,9 +1257,13 @@
     var THEMES = {
       navy:     { bg: ["#16395C", "#0A1C2E"], fg: "#FFFFFF", muted: "rgba(255,255,255,.75)", bar: "#FFB300" },
       red:      { bg: ["#E53935", "#8E0000"], fg: "#FFFFFF", muted: "rgba(255,255,255,.78)", bar: "#FFB300" },
-      green:    { bg: ["#2E9E4F", "#0B4F1E"], fg: "#FFFFFF", muted: "rgba(255,255,255,.78)", bar: "#FF9933" },
+      green:    { bg: ["#2E9E4F", "#0B4F1E"], fg: "#FFFFFF", muted: "rgba(255,255,255,.78)", bar: "#FFB300" },
       amber:    { bg: ["#FFB300", "#E07C00"], fg: "#3A2A00", muted: "rgba(58,42,0,.78)", bar: "#0F2942" },
-      tricolor: { bg: ["#FF9933", "#138808"], fg: "#FFFFFF", muted: "rgba(255,255,255,.8)", bar: "#0F2942" },
+      // The previous "tricolor" theme painted the card in saffron/white/green.
+      // On an ID-shaped card that reads as an imitation national emblem and
+      // makes the output look government-issued. Replaced with a neutral
+      // slate/teal pairing.
+      teal:     { bg: ["#0F5257", "#062F31"], fg: "#FFFFFF", muted: "rgba(255,255,255,.78)", bar: "#38BDF8" },
       white:    { bg: ["#FFFFFF", "#EEF2F7"], fg: "#16202C", muted: "rgba(22,32,44,.65)", bar: "#D32F2F" }
     };
 
@@ -1374,28 +1391,52 @@
         }
       }
 
-      // ---- fake QR
+      // ---- decorative monogram
+      // Previously this drew a QR-shaped grid labelled "SCAN". It encoded
+      // nothing, so anyone who printed it produced a card that falsely
+      // implied machine-verifiability — a real phishing / impersonation
+      // vector. Replaced with an honest decorative monogram built from the
+      // organisation initials.
       if (wantQr()) {
         var q = 78, qx = CW - q - pad, qy = CH - q - pad - 6;
         ctx.fillStyle = "rgba(255,255,255,.92)";
         roundRect(ctx, qx, qy, q, q, 8);
         ctx.fill();
+        ctx.strokeStyle = t.bar;
+        ctx.lineWidth = 3;
+        roundRect(ctx, qx + 1.5, qy + 1.5, q - 3, q - 3, 8);
+        ctx.stroke();
+
+        var initials = (val("pcOrg") || name || "RKHUB")
+          .replace(/[^A-Za-zऀ-ॿ ]/g, "")
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean)
+          .slice(0, 2)
+          .map(function (w) { return w.charAt(0).toUpperCase(); })
+          .join("") || "R";
+
         ctx.fillStyle = t.bg[1];
-        var seed = 1;
-        for (var i = 0; i < 7; i++) {
-          for (var j = 0; j < 7; j++) {
-            seed = (seed * 9301 + 49297) % 233280;
-            if (seed / 233280 > 0.5) {
-              ctx.fillRect(qx + 7 + i * 9.5, qy + 7 + j * 9.5, 8, 8);
-            }
-          }
-        }
-        ctx.fillStyle = t.muted;
-        ctx.font = "600 15px Arial, sans-serif";
+        ctx.font = "800 34px 'Noto Sans Devanagari', Arial, sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText("SCAN", qx + q / 2, qy - 6);
+        ctx.textBaseline = "middle";
+        ctx.fillText(initials, qx + q / 2, qy + q / 2);
         ctx.textAlign = "left";
+        ctx.textBaseline = "alphabetic";
       }
+
+      // ---- provenance footer
+      // Printed on every card so a lost or lent card can never be mistaken
+      // for an official document.
+      ctx.save();
+      roundRect(ctx, 0, 0, CW, CH, R);
+      ctx.clip();
+      ctx.fillStyle = t.muted;
+      ctx.font = "600 15px 'Noto Sans Devanagari', Arial, sans-serif";
+      ctx.textAlign = "right";
+      ctx.fillText("NOT A GOVERNMENT ID", CW - pad, CH - 12);
+      ctx.textAlign = "left";
+      ctx.restore();
 
       // ---- outer border
       ctx.restore();
@@ -1616,9 +1657,19 @@
       var days = a.getDate() - b.getDate();
 
       if (days < 0) {
-        // borrow the length of the month the "as on" date falls in
+        /* Borrow the length of the month *preceding* the "as on" date.
+           getMonth() is 0-based while daysInMonth() takes a 1-based month,
+           so passing getMonth() directly yields the previous month. Passing
+           getMonth() + 1 (the old code) returned the length of the as-on
+           month itself, which over-counted by however many extra days that
+           month had.
+           Worked example: 20 Jan 2024 -> 15 Mar 2024.
+             old: 15 + 31 (March)  - 20 = 26 days   <- wrong
+             new: 15 + 29 (Feb)   - 20 = 24 days   <- correct
+           For an as-on date in January, getMonth() is 0 and
+           new Date(y, 0, 0) correctly resolves to 31 December of y-1. */
         months -= 1;
-        days = a.getDate() + daysInMonth(a.getFullYear(), a.getMonth() + 1) - b.getDate();
+        days = a.getDate() + daysInMonth(a.getFullYear(), a.getMonth()) - b.getDate();
       }
       if (months < 0) { years -= 1; months += 12; }
 

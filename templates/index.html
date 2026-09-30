@@ -3,16 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="RKHUB Tools — CSC / Jan Seva Kendra operators ke liye document, image, calculator aur government portal utility hub. 100% private, koi file upload nahi hoti." />
-  <meta name="theme-color" content="#0F2942" />
+  <meta name="description" content="RKHUB Tools — service-centre operators ke liye document, image, calculator aur official portal utility hub. 100% private, koi file upload nahi hoti." />
+  <meta name="theme-color" content="#0A3FCF" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
   <title>{{ SITE.title }}</title>
 
   <link rel="icon" href="{{ url_for('static', filename='images/rkhub-logo-64.png') }}" sizes="64x64" type="image/png" />
 <link rel="icon" href="{{ url_for('static', filename='images/rkhub-logo.svg') }}" type="image/svg+xml" />
-<link rel="apple-touch-icon" href="{{ url_for('static', filename='images/rkhub-logo-168.png') }}" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='images/rkhub-logo-180.png') }}" />
+  {# No webfont is requested: the stack in style.css resolves to the platform's
+     own UI face (SF Pro on Apple devices), so there is no third-party DNS/TLS
+     round-trip, no render-blocking stylesheet, and no visitor IP disclosure. #}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
 </head>
 <body>
@@ -21,7 +22,7 @@
   <!-- ============================== TOP BAR ============================== -->
   <div class="topbar">
     <div class="container topbar__inner">
-      <span class="topbar__gov">🇮🇳 Digital India • CSC / जन सेवा केंद्र Utility Portal</span>
+      <span class="topbar__gov">Independent Utility Hub · सेवा केंद्र संचालकों के लिए</span>
       <div class="topbar__owner">
         <a class="topbar__link" href="tel:{{ OWNER.phone_raw }}">
           <svg class="ico" aria-hidden="true"><use href="#i-phone"></use></svg>
@@ -129,17 +130,19 @@
         <div class="hero__brand">
           {{ brand_logo(84) }}
         </div>
-        <p class="hero__eyebrow">🇮🇳 Digital India Initiative • CSC e-Governance</p>
+        <p class="hero__eyebrow">Private • On-device processing</p>
         <h1 class="hero__title">{{ SITE.title }}</h1>
         <p class="hero__subtitle">{{ SITE.subtitle }}</p>
         <p class="hero__hi">
           सभी ज़रूरी दस्तावेज़ प्रोसेसिंग और उपयोगिता टूल्स — अब एक ही जगह, बिल्कुल तेज़ और पूरी तरह निजी।
         </p>
 
-        <form class="search" role="search" onsubmit="return false;">
+        {# No inline onsubmit handler: it would require 'unsafe-inline' in
+           script-src. main.js binds the submit event instead. #}
+        <form class="search" role="search" id="toolSearchForm" data-search-form>
           <svg class="ico search__ico" aria-hidden="true"><use href="#i-search"></use></svg>
           <input class="search__input" id="toolSearch" type="search"
-                 placeholder="टूल खोजें… e.g. passport, PDF, age, aadhaar"
+                 placeholder="टूल खोजें… e.g. passport, PDF, age"
                  autocomplete="off" aria-label="Search tools" />
           <kbd class="search__kbd">/</kbd>
         </form>

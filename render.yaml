@@ -6,9 +6,46 @@ services:
     region: singapore
     branch: main
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    # One worker with threads, on purpose.
+    #
+    # The rate limiter (see app.py) keeps its request-window counters in
+    # process memory, so each worker gets its own independent set of counters.
+    # Running two workers silently doubled the documented ceiling and meant
+    # no request ever saw another's traffic. gthread keeps concurrency for
+    # I/O-bound work without forking a second copy of that state.
+    #
+    # If this is ever scaled to 2+ instances or the worker count is raised,
+    # the limiter must move to a shared store (Redis) first, otherwise the
+    # per-process buckets stop meaning anything.
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --worker-class gthread --timeout 60 --access-logfile - --error-logfile -
     healthCheckPath: /api/health
     autoDeploy: true
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.5"
+
+      # Render terminates TLS and forwards every request from its own proxy,
+      # so without this the rate limiter sees one shared client address for
+      # the whole internet and locks out real visitors. Safe to enable here
+      # because Render overwrites X-Forwarded-For on ingress.
+      - key: TRUST_PROXY
+        value: "1"
+
+      # Absolute URLs in robots.txt and sitemap.xml. Change this if the
+      # service is ever served from a different domain.
+      - key: CANONICAL_URL
+        value: "https://rkhub-tools.onrender.com"
+
+      # Flask signing key. Set this in the Render dashboard (it is a secret,
+      # so it is deliberately NOT committed here). If it is left unset the
+      # app generates a random one per boot, which is fine today because no
+      # session or signed cookie is used, but it must be set before any
+      # feature that relies on sessions is added.
+      # - key: SECRET_KEY
+      #   sync: false
+
+      # Host header allow-list. Left unset so a custom domain can be attached
+      # without the site breaking; set it to the exact production hostnames
+      # (comma separated) to enable the protection.
+      # - key: TRUSTED_HOSTS
+      #   value: "rkhub-tools.onrender.com"

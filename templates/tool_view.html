@@ -4,15 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="{% if notfound %}Page not found{% else %}{{ tool.summary }} — {{ SITE.name }}{% endif %}" />
-  <meta name="theme-color" content="#0F2942" />
+  <meta name="theme-color" content="#0A3FCF" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
   <title>{% if notfound %}404 — Page Not Found{% else %}{{ tool.name }} — {{ SITE.name }}{% endif %}</title>
 
   <link rel="icon" href="{{ url_for('static', filename='images/rkhub-logo-64.png') }}" sizes="64x64" type="image/png" />
 <link rel="icon" href="{{ url_for('static', filename='images/rkhub-logo.svg') }}" type="image/svg+xml" />
-<link rel="apple-touch-icon" href="{{ url_for('static', filename='images/rkhub-logo-168.png') }}" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='images/rkhub-logo-180.png') }}" />
+  {# System font stack only - no third-party font request. #}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
 </head>
 <body>
@@ -20,7 +19,7 @@
 
   <div class="topbar">
     <div class="container topbar__inner">
-      <span class="topbar__gov">🇮🇳 Digital India • CSC / जन सेवा केंद्र Utility Portal</span>
+      <span class="topbar__gov">Independent Utility Hub · सेवा केंद्र संचालकों के लिए</span>
       <div class="topbar__owner">
         <a class="topbar__link" href="tel:{{ OWNER.phone_raw }}">
           <svg class="ico" aria-hidden="true"><use href="#i-phone"></use></svg>{{ OWNER.phone }}
@@ -118,7 +117,11 @@
     <nav class="breadcrumb container" aria-label="Breadcrumb">
       <a href="{{ url_for('index') }}">Home</a>
       <span aria-hidden="true">/</span>
-      <a href="{{ url_for('index') }}#{{ tool.category }}">{{ tool.category | capitalize }}</a>
+      {# Show the configured category label, not the raw slug: "document" /
+         "portals" via |capitalize read as unpolished, and the slug is an
+         internal identifier that should not leak into the UI. #}
+      {% set cat = CATEGORY_BY_ID.get(tool.category) %}
+      <a href="{{ url_for('index') }}#{{ tool.category }}">{{ cat.label if cat else 'Tools' }}</a>
       <span aria-hidden="true">/</span>
       <span class="breadcrumb__current" aria-current="page">{{ tool.name }}</span>
     </nav>
@@ -515,17 +518,26 @@
                   <option value="red">Red</option>
                   <option value="green">Green</option>
                   <option value="amber">Amber</option>
-                  <option value="tricolor">Tricolor (India)</option>
+                  <option value="teal">Teal</option>
                   <option value="white">White Minimal</option>
                 </select>
               </div>
               <div class="field">
                 <label for="pcOrg">Header Text (optional)</label>
-                <input type="text" id="pcOrg" placeholder="e.g. JAN SEVA KENDRA" maxlength="28" />
+                <input type="text" id="pcOrg" placeholder="e.g. YOUR ORGANISATION" maxlength="28" />
               </div>
               <div class="field field--check">
                 <input type="checkbox" id="pcQr" />
-                <label for="pcQr">Fake QR block दिखाएँ</label>
+                <label for="pcQr">Organisation monogram दिखाएँ</label>
+              </div>
+
+              <div class="ws-note">
+                <strong>Yein Government ID nahi hai.</strong>
+                Yeh card sirf organisation, membership, event ya staff
+                identification ke liye hai. Isse kisi bhi official identity
+                document, voter ID, PAN ya Aadhaar ke roop me use na karein —
+                aisa karna illegal ho sakta hai. Har card par
+                “NOT A GOVERNMENT ID” watermark automatically lagaya jaata hai.
               </div>
 
               <p class="ws-hint">Size: CR80 — 85.6 × 54 mm @ 300 DPI = 1011 × 638 px</p>
@@ -808,7 +820,7 @@
     <div class="footer__bottom">
       <div class="container footer__bottom-inner">
         <p>© {{ SITE.year }} {{ SITE.name }}. All Rights Reserved.</p>
-        <p>Made in India 🇮🇳 • Not a Government website</p>
+        <p>Built in India • Not a Government website</p>
       </div>
     </div>
   </footer>
