@@ -701,8 +701,32 @@ html[data-theme="dark"] .accent-navy { --tc-accent: #4E8AC8; }
   transition: color .22s var(--ease), transform .22s var(--ease), box-shadow .22s var(--ease);
 }
 
+/* Touch devices have no real :hover, so the sweep rail above never ran on
+   phones. main.js sets html.is-touch (navigator.maxTouchPoints, which is far
+   more dependable than the `hover` media feature) and the rail is then driven
+   by the card itself. It stays paused until main.js marks the card
+   .is-visible, so only the handful of cards on screen repaint instead of all
+   ~186 at once. */
+html.is-touch .tool-card:hover { transform: none; }
+html.is-touch .tool-card::before {
+  transform: scaleX(1);
+  animation: sweep 2.6s linear infinite paused;
+}
+html.is-touch .tool-card.is-visible::before { animation-play-state: running; }
+html.is-touch .tool-card:hover::before,
+html.is-touch .tool-card:focus-within::before {
+  animation-play-state: running;
+  animation-duration: 1.4s;
+}
+
+/* Fallback for the rare case where JS is unavailable: the media feature still
+   tells us this is a touch device. */
 @media (hover: none) {
   .tool-card:hover { transform: none; }
+  .tool-card::before {
+    transform: scaleX(1);
+    animation: sweep 2.6s linear infinite running;
+  }
 }
 
 .tool-card__top {
@@ -1146,11 +1170,13 @@ html[data-theme="dark"] .howto__list li::before { background: #1E4A78; }
 .contact-card {
   display: flex; flex-direction: column; gap: .2rem;
   padding: 1.2rem;
+  position: relative;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
   transition: transform .2s var(--ease), box-shadow .2s var(--ease);
+  isolation: isolate;
 }
 a.contact-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
 .contact-card__icon {
@@ -1504,12 +1530,110 @@ html[data-theme="dark"] .contact-card--wa .contact-card__icon { color: #4BE08A; 
 .contact-card .contact-card__icon { transition: transform .28s var(--ease), background .22s var(--ease); }
 .contact-card:hover .contact-card__icon { transform: rotate(-10deg) scale(1.12); }
 
+/* Neon animated border. Registering the angle as a real property is what lets
+   the conic gradient interpolate smoothly; without it the ring jumps between
+   keyframes instead of flowing. */
+@property --neon-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+.contact-card::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  padding: 2px;
+  border-radius: calc(var(--radius) + 2px);
+  background: conic-gradient(from var(--neon-angle),
+    #00E5FF, #7C4DFF, #FF2E9A, #00FF9C, #FFD400, #00E5FF);
+  /* Keep only the 2px rim: mask everything except the padding box. */
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: neonSpin 5s linear infinite;
+  opacity: .85;
+  z-index: -1;
+  pointer-events: none;
+}
+@keyframes neonSpin {
+  to { --neon-angle: 360deg; }
+}
+.contact-card:hover, .contact-card:focus-within {
+  box-shadow: 0 0 18px rgba(0, 229, 255, .35),
+              0 0 34px rgba(255, 46, 154, .22),
+              var(--shadow-md);
+}
+.contact-card:hover::before, .contact-card:focus-within::before { opacity: 1; }
+
+/* Stagger the five cards so they are not all in phase. */
+.contact-grid > .contact-card:nth-child(2)::before { animation-delay: -1s; }
+.contact-grid > .contact-card:nth-child(3)::before { animation-delay: -2s; }
+.contact-grid > .contact-card:nth-child(4)::before { animation-delay: -3s; }
+.contact-grid > .contact-card:nth-child(5)::before { animation-delay: -4s; }
+
 .howto { transition: transform .25s var(--ease), box-shadow .25s var(--ease); }
 .howto:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
 
 /* Photo sheet / PVC card canvas sizing */
 .ws-canvas--sheet { max-height: 620px; }
 .ws-canvas--card  { max-height: 320px; }
+
+/* ================= 14d. ID / PVC CARD CROPPER PANEL ====================== */
+
+.icc-sides {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+.icc-side {
+  display: flex; flex-direction: column; gap: .55rem;
+  margin: 0;
+  padding: .85rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.icc-side > figcaption {
+  font-size: .78rem; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--text-faint);
+}
+.icc-drop {
+  display: grid; place-items: center; gap: .35rem;
+  padding: 1.1rem .6rem;
+  text-align: center;
+  font-size: .82rem; color: var(--text-faint);
+  background: var(--surface);
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color .2s var(--ease), background .2s var(--ease), color .2s var(--ease);
+}
+.icc-drop .ico { width: 22px; height: 22px; }
+.icc-drop:hover, .icc-drop.is-over {
+  border-color: var(--red);
+  background: color-mix(in srgb, var(--red) 7%, var(--surface));
+  color: var(--text);
+}
+.icc-drop.is-over { border-style: solid; }
+
+.icc-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 85.6 / 54;
+  object-fit: contain;
+  background:
+    repeating-conic-gradient(var(--surface-2) 0% 25%, var(--bg) 0% 50%) 50% / 16px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.icc-nudge { display: flex; flex-wrap: wrap; gap: .4rem; }
+.icc-nudge .btn { flex: 1 1 auto; padding: .45rem .5rem; font-size: .76rem; }
+
+@media (max-width: 900px) {
+  .ws-panel__preview { padding-top: 1rem; }
+}
 
 /* =========================== 15. RESPONSIVE =============================== */
 
@@ -1583,12 +1707,17 @@ html[data-theme="dark"] .contact-card--wa .contact-card__icon { color: #4BE08A; 
     transition-duration: .001ms !important;
   }
   .ticker__track { animation: none; }
+  /* freeze the neon rings at a readable angle instead of 0.001ms churn */
+  .contact-card::before { --neon-angle: 210deg; opacity: .5; }
 }
 
 @media print {
   .topbar, .navbar, .ticker, .privacy, .to-top, .search,
   .hero__stats, .tool-card__foot, .ws-drop, .ws-actions,
   .ws-panel__controls, .footer__bottom { display: none !important; }
+  /* the neon rim is a solid colour on a black printer — drop it */
+  .contact-card::before, .tool-card::before { display: none !important; }
+  .contact-card { border: 1px solid #ccc; box-shadow: none; }
   body { background: #fff; color: #000; }
   .footer { background: #fff; color: #000; }
   .tool-workspace, .tool-card, .howto { box-shadow: none; border: 1px solid #ccc; }

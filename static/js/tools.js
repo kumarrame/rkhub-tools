@@ -1811,6 +1811,524 @@
     calc();
   }
 
+  /* ====================================================================
+     6d. PVC / ID CARD CROPPER  —  front + back, exact mm, duplex sheet
+     --------------------------------------------------------------------
+     Trims a photo of a card the visitor already owns down to exact print
+     dimensions with rounded corners and optional cut guides. There are no
+     name / ID-number / emblem fields here on purpose: this sizes a card
+     that already exists, it cannot author a new identity document.
+     ==================================================================== */
+
+  function engineIdCardCrop() {
+    var panel = panelFor("id-card-crop");
+    if (!panel) return;
+
+    /* ISO/IEC 7810 identity-card sizes, in millimetres. */
+    var PRESETS = {
+      "85.6x54":     { w: 85.6,  h: 54 },
+      "53.98x85.6":  { w: 53.98, h: 85.6 },
+      "125x88":      { w: 125,   h: 88 },
+      "85.6x53.98":  { w: 85.6,  h: 53.98 }
+    };
+    var A4 = { w: 210, h: 297 };
+
+    var sides = {
+      front: { img: null, box: null, file: "" },
+      back:  { img: null, box: null, file: "" }
+    };
+
+    function el(id) { return panel.querySelector("#" + id); }
+    function tag(side) { return side === "front" ? "F" : "B"; }
+    function on(id, ev, fn) { var e = el(id); if (e) e.addEventListener(ev, fn); }
+    function has(id) { return !!el(id); }
+
+    function num(id, dflt) {
+      var e = el(id);
+      var v = e ? parseFloat(e.value) : NaN;
+      return isFinite(v) ? v : dflt;
+    }
+
+    function setRange(id, v) {
+      var e = el(id);
+      if (!e) return;
+      e.value = Math.max(parseFloat(e.min), Math.min(parseFloat(e.max), v));
+    }
+
+    /* ---- geometry ---------------------------------------------------- */
+
+    function targetMm() {
+      var key = (el("iccSize") || {}).value;
+      var p = PRESETS[key];
+      return p ? { w: p.w, h: p.h }
+               : { w: num("iccW", 85.6), h: num("iccH", 54) };
+    }
+
+    function dpi() { return Math.max(72, Math.round(num("iccDpi", 300))); }
+
+    function radiusMm() {
+      var e = el("iccRadius");
+      return e ? parseFloat(e.value) / 10 : 3.18;   /* slider is in tenths */
+    }
+
+    function paddingMm() { return num("iccPadding", 12); }
+
+    /* The card's rectangle inside the photo, as fractions of the photo. */
+    function box(side) {
+      var s = sides[side];
+      if (!s.box) s.box = { x: 0.10, y: 0.14, w: 0.80, h: 0.72 };
+      return s.box;
+    }
+
+    function resetBox(side) { sides[side].box = { x: 0.10, y: 0.14, w: 0.80, h: 0.72 }; }
+
+    function zoomOf(side) { return num("icc" + tag(side) + "Zoom", 100) / 100; }
+    function dxOf(side)   { return num("icc" + tag(side) + "Dx", 0) / 100; }
+    function dyOf(side)   { return num("icc" + tag(side) + "Dy", 0) / 100; }
+
+    /* ==================================================================
+       AUTO-DETECT
+       Flood-fills inward from the image border to mark background, then
+       takes the bounding box of what is left. Handles the normal case of a
+       card lying on a desk, a scanner bed or a plain sheet.
+       ================================================================== */
+
+    function detect(side) {
+      var sc = sides[side].img;
+      if (!sc) return false;
+
+      var W = 260;
+      var H = Math.max(1, Math.round(sc.naturalHeight * (W / sc.naturalWidth)));
+      if (H > 340) { H = 340; W = Math.max(1, Math.round(H * sc.naturalWidth / sc.naturalHeight)); }
+
+      var cv = document.createElement("canvas");
+      cv.width = W; cv.height = H;
+      var cx = cv.getContext("2d", { willReadFrequently: true });
+      try { cx.drawImage(sc, 0, 0, W, H); }
+      catch (e) { return false; }
+
+      var d;
+      try { d = cx.getImageData(0, 0, W, H).data; }
+      catch (e) { return false; }          /* tainted canvas */
+
+      /* Reference colour = mean of the four corners. */
+      var cr = 0, cg = 0, cb = 0;
+      [[0, 0], [W - 1, 0], [0, H - 1], [W - 1, H - 1]].forEach(function (p) {
+        var i = (p[1] * W + p[0]) * 4;
+        cr += d[i]; cg += d[i + 1]; cb += d[i + 2];
+      });
+      cr /= 4; cg /= 4; cb /= 4;
+
+      var TOL = 34;                       /* summed RGB distance */
+      var bg = new Uint8Array(W * H);
+      var stack = [];
+
+      function push(x, y) {
+        var i = y * W + x;
+        if (bg[i]) return;
+        var o = i * 4;
+        var dist = Math.abs(d[o] - cr) + Math.abs(d[o + 1] - cg) + Math.abs(d[o + 2] - cb);
+        if (dist > TOL) return;            /* foreground — stop */
+        bg[i] = 1;
+        stack.push(i);
+      }
+
+      var x, y;
+      for (x = 0; x < W; x++) { push(x, 0); push(x, H - 1); }
+      for (y = 0; y < H; y++) { push(0, y); push(W - 1, y); }
+      while (stack.length) {
+        var i = stack.pop();
+        var px = i % W, py = (i / W) | 0;
+        if (px > 0)      push(px - 1, py);
+        if (px < W - 1)  push(px + 1, py);
+        if (py > 0)      push(px, py - 1);
+        if (py < H - 1)  push(px, py + 1);
+      }
+
+      var minX = W, minY = H, maxX = -1, maxY = -1;
+      for (y = 0; y < H; y++) {
+        for (x = 0; x < W; x++) {
+          if (bg[y * W + x]) continue;
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+
+      if (maxX < 0) return false;         /* whole image read as background */
+
+      var bw = (maxX - minX + 1) / W;
+      var bh = (maxY - minY + 1) / H;
+
+      /* Reject implausible detections (slivers or the whole frame) so a bad
+         guess never silently produces garbage output. */
+      if (bw < 0.15 || bh < 0.15 || bw > 0.99 || bh > 0.99) return false;
+
+      var b = box(side);
+      b.x = minX / W; b.y = minY / H; b.w = bw; b.h = bh;
+      syncNudge(side);
+      return true;
+    }
+
+    /* Auto-detect already sets the box to exactly the card, so the crop is
+       1:1 and the zoom slider goes back to neutral. */
+    function syncNudge(side) {
+      setRange("icc" + tag(side) + "Zoom", 100);
+    }
+
+    /* ---- pixel size of the finished card ----------------------------- */
+
+    function cardPx() {
+      var mm = targetMm();
+      var d = dpi();
+      return { w: Math.max(16, Math.round(mm.w * d / 25.4)), h: Math.max(16, Math.round(mm.h * d / 25.4)) };
+    }
+
+    function roundRectPath(ctx, x, y, w, h, r) {
+      r = Math.max(0, Math.min(r, Math.min(w, h) / 2));
+      ctx.beginPath();
+      if (!r) { ctx.rect(x, y, w, h); return; }
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    /* Paint one side of the card into `ctx` at (dx,dy) at cardPx() size. */
+    function paintSide(ctx, side, dx, dy, withGuides) {
+      var s = sides[side];
+      var px = cardPx();
+      if (!s.img) {
+        ctx.save();
+        ctx.fillStyle = "rgba(0,0,0,.06)";
+        ctx.fillRect(dx, dy, px.w, px.h);
+        ctx.strokeStyle = "rgba(0,0,0,.25)";
+        ctx.setLineDash([6, 6]);
+        ctx.lineWidth = Math.max(1, px.w / 400);
+        ctx.strokeRect(dx, dy, px.w, px.h);
+        ctx.setLineDash([]);
+        ctx.fillStyle = "rgba(0,0,0,.45)";
+        ctx.font = Math.max(10, px.h / 16) + "px system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(side === "front" ? "Front photo add karein" : "Back photo add karein",
+                     dx + px.w / 2, dy + px.h / 2);
+        ctx.restore();
+        return;
+      }
+
+      var b = box(side);
+      var z = zoomOf(side);
+      var sw = s.img.naturalWidth, sh = s.img.naturalHeight;
+
+      /* Source rectangle = the box, shrunk about its centre by the zoom.
+         Zoom > 1 therefore crops *tighter*, which is what people expect
+         from a "zoom" control here. */
+      var bw = Math.min(1, b.w / z), bh = Math.min(1, b.h / z);
+      var bx = b.x + (b.w - bw) / 2 - dxOf(side);
+      var by = b.y + (b.h - bh) / 2 - dyOf(side);
+
+      ctx.save();
+      roundRectPath(ctx, dx, dy, px.w, px.h, radiusMm() * dpi() / 25.4);
+      ctx.clip();
+
+      var outAspect = px.w / px.h;
+      var sx2 = 0, sy2 = 0;
+      var sw2 = bw * sw, sh2 = bh * sh;
+
+      if ((sw2 / sh2) > outAspect) {      /* source too wide -> crop sides */
+        var nw = sh2 * outAspect;
+        sw2 = nw; sx2 = (bw * sw - nw) / 2;
+      } else {                             /* source too tall -> crop top/bottom */
+        var nh = sw2 / outAspect;
+        sh2 = nh; sy2 = (bh * sh - nh) / 2;
+      }
+
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(s.img, bx * sw + (sx2 || 0), by * sh + (sy2 || 0), sw2, sh2,
+                    dx, dy, px.w, px.h);
+      ctx.restore();
+
+      if (!withGuides) return;
+
+      /* --- cut guides: corner crop marks + the exact size --------------- */
+      ctx.save();
+      var r = radiusMm() * dpi() / 25.4;
+      roundRectPath(ctx, dx, dy, px.w, px.h, r);
+      ctx.strokeStyle = "rgba(0,0,0,.55)";
+      ctx.lineWidth = Math.max(1, px.w / 500);
+      ctx.setLineDash([px.w / 60, px.w / 60]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      var m = px.w / 12, L = px.w / 16;
+      ctx.lineWidth = Math.max(1, px.w / 700);
+      ctx.strokeStyle = "rgba(0,0,0,.8)";
+      [[dx, dy, 1, 1], [dx + px.w, dy, -1, 1], [dx, dy + px.h, 1, -1], [dx + px.w, dy + px.h, -1, -1]]
+        .forEach(function (p) {
+          ctx.beginPath();
+          ctx.moveTo(p[0] + p[2] * m, p[1]); ctx.lineTo(p[0] + p[2] * m, p[1] + p[3] * m);
+          ctx.moveTo(p[0], p[1] + p[3] * m); ctx.lineTo(p[0] + p[2] * m, p[1] + p[3] * m);
+          ctx.stroke();
+        });
+      ctx.restore();
+
+      /* measurement caption under the card */
+      var mm = targetMm();
+      ctx.save();
+      ctx.fillStyle = "rgba(0,0,0,.65)";
+      ctx.font = Math.max(9, px.w / 46) + "px ui-monospace, Menlo, Consolas, monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      ctx.fillText(mm.w + " × " + mm.h + " mm  ·  " + dpi() + " DPI  ·  "
+                   + px.w + "×" + px.h + "px  ·  R" + radiusMm().toFixed(2) + "mm",
+                   dx + px.w / 2, dy + px.h + px.w / 30);
+      ctx.restore();
+    }
+
+    /* ---- previews ----------------------------------------------------- */
+
+    function renderSide(side) {
+      var cv = el("icc" + tag(side) + "Canvas");
+      if (!cv) return;
+      var px = cardPx();
+      cv.width = px.w; cv.height = px.h;
+      var ctx = cv.getContext("2d");
+      ctx.clearRect(0, 0, px.w, px.h);
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, px.w, px.h);
+      paintSide(ctx, side, 0, 0, false);
+    }
+
+    function render() {
+      renderSide("front");
+      renderSide("back");
+      syncOutputs();
+      syncReadouts();
+    }
+
+    function syncReadouts() {
+      var mm = targetMm(), px = cardPx();
+      setText("iccWOut", mm.w.toFixed(mm.w % 1 ? 1 : 0));
+      setText("iccHOut", mm.h.toFixed(mm.h % 1 ? 1 : 0));
+      setText("iccRadiusOut", radiusMm().toFixed(2) + " mm");
+      setText("iccPaddingOut", paddingMm() + " mm");
+      setText("iccFZoomOut", Math.round(zoomOf("front") * 100) + "%");
+      setText("iccBZoomOut", Math.round(zoomOf("back") * 100) + "%");
+      if (has("iccHint")) {
+        setText("iccHint", px.w + " × " + px.h + " px @ " + dpi() + " DPI");
+      }
+    }
+
+    function setText(id, txt) { var e = el(id); if (e) e.textContent = txt; }
+
+    function syncOutputs() {
+      var f = el("iccDlFront"), b = el("iccDlBack"), s = el("iccDlSheet");
+      if (f) f.disabled = !sides.front.img;
+      if (b) b.disabled = !sides.back.img;
+      if (s) s.disabled = !(sides.front.img || sides.back.img);
+    }
+
+    /* ---- off-screen render for download ------------------------------- */
+
+    function renderCard(side) {
+      var px = cardPx();
+      var cv = document.createElement("canvas");
+      cv.width = px.w; cv.height = px.h;
+      var ctx = cv.getContext("2d");
+      ctx.clearRect(0, 0, px.w, px.h);
+      paintSide(ctx, side, 0, 0, has("iccGuides") && el("iccGuides").checked);
+      return cv;
+    }
+
+    /* Two A4 pages stacked: front on page 1, back on page 2, so the sheet
+       prints duplex-ready. */
+    function renderSheet() {
+      var d = dpi();
+      var mm = targetMm();
+      var px = cardPx();
+      var pad = paddingMm() * d / 25.4;
+      var pw = Math.round(A4.w * d / 25.4);
+      var ph = Math.round(A4.h * d / 25.4);
+      var label = Math.max(10, pw / 120);
+
+      var cv = document.createElement("canvas");
+      cv.width = pw;
+      cv.height = ph * 2;
+      var ctx = cv.getContext("2d");
+
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, cv.width, cv.height);
+
+      var pages = [
+        { side: "front", label: "PAGE 1 — FRONT / सामने" },
+        { side: "back",  label: "PAGE 2 — BACK / पीछे" }
+      ];
+
+      pages.forEach(function (pg, pi) {
+        var oy = ph * pi;
+        ctx.fillStyle = "rgba(0,0,0,.55)";
+        ctx.font = label + "px ui-monospace, Menlo, Consolas, monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(pg.label + "   ·   " + mm.w + "×" + mm.h + " mm   ·   " + dpi() + " DPI",
+                     pw / 2, oy + pad * 0.7);
+
+        if (!sides[pg.side].img) {
+          ctx.fillStyle = "rgba(0,0,0,.3)";
+          ctx.fillText("(no photo added for this side)", pw / 2, oy + ph / 2);
+          return;
+        }
+
+        var label = Math.max(10, pw / 120);
+
+        var availW = pw - pad * 2;
+        var availH = ph - pad * 2 - label * 2;
+        var fit = Math.min(availW / px.w, availH / px.h);
+        var cw = px.w * fit, ch = px.h * fit;
+
+        /* Count cards per row from the *fitted* size, not the raw 300 DPI
+           size, otherwise the last card overflows the page. */
+        var perRow = Math.max(1, Math.floor((availW + pad) / (cw + pad)));
+        var rows = Math.max(1, Math.floor((availH + pad) / (ch + pad)));
+        var gridW = perRow * cw + (perRow - 1) * pad;
+        var startX = (pw - gridW) / 2;
+        var startY = oy + pad + label * 2;
+
+        ctx.imageSmoothingQuality = "high";
+        for (var i = 0; i < perRow * rows; i++) {
+          var col = i % perRow, row = (i / perRow) | 0;
+          var x = startX + col * (cw + pad);
+          var y = startY + row * (ch + pad);
+          if (y + ch > oy + ph - pad * 0.5) break;
+          ctx.drawImage(renderCard(pg.side), x, y, cw, ch);
+        }
+      });
+
+      return cv;
+    }
+
+    /* ---- file loading -------------------------------------------------- */
+
+    function loadFile(side, file) {
+      if (!file) return;
+      if (!/^image\//.test(file.type)) { notice("Sirf image file (JPG / PNG / WebP) chunein.", true); return; }
+
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        sides[side].img = img;
+        sides[side].file = file.name.replace(/\.[^.]+$/, "");
+        URL.revokeObjectURL(url);
+        detect(side);                 /* best guess first, sliders refine it */
+        render();
+      };
+      img.onerror = function () {
+        URL.revokeObjectURL(url);
+        notice("Image load nahi hui. HEIC file ho to JPG/PNG me convert karein.", true);
+      };
+      img.src = url;
+    }
+
+    function notice(msg, isErr) {
+      var n = document.getElementById("wsNotice");
+      if (!n) return;
+      n.textContent = msg;
+      n.hidden = false;
+      n.classList.toggle("ws-notice--err", !!isErr);
+    }
+
+    /* ---- wire up -------------------------------------------------------- */
+
+    var SIDES = ["front", "back"];
+    SIDES.forEach(function (side) {
+      var t = tag(side);
+      var input = el("icc" + t + "File");
+      var drop = el("icc" + t + "Drop");
+
+      if (input) {
+        input.addEventListener("change", function () {
+          loadFile(side, input.files && input.files[0]);
+        });
+      }
+      if (drop) {
+        drop.addEventListener("click", function () { if (input) input.click(); });
+        ["dragenter", "dragover"].forEach(function (ev) {
+          drop.addEventListener(ev, function (e) {
+            e.preventDefault(); e.stopPropagation();
+            drop.classList.add("is-over");
+          });
+        });
+        ["dragleave", "drop"].forEach(function (ev) {
+          drop.addEventListener(ev, function (e) {
+            e.preventDefault(); e.stopPropagation();
+            drop.classList.remove("is-over");
+          });
+        });
+        drop.addEventListener("drop", function (e) {
+          var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+          if (f) loadFile(side, f);
+        });
+      }
+
+      ["Zoom", "Dx", "Dy"].forEach(function (k) {
+        var e = el("icc" + t + k);
+        if (e) e.addEventListener("input", render);
+      });
+    });
+
+    /* buttons: auto-detect / reset */
+    panel.addEventListener("click", function (e) {
+      var b = e.target.closest ? e.target.closest("[data-icc-act]") : null;
+      if (!b) return;
+      var side = b.getAttribute("data-side");
+      if (!sides[side] || !sides[side].img) { notice("Pehle is side ki photo add karein."); return; }
+      if (b.getAttribute("data-icc-act") === "auto") {
+        if (!detect(side)) notice("Card photo me se pata nahi chala — sliders se adjust karein.");
+        render();
+      } else {
+        resetBox(side);
+        setRange("icc" + tag(side) + "Zoom", 100);
+        setRange("icc" + tag(side) + "Dx", 0);
+        setRange("icc" + tag(side) + "Dy", 0);
+        render();
+      }
+    });
+
+    /* size / output controls — bind both events: range inputs fire "input"
+       while <select> reliably fires "change", and some browsers fire only
+       one of the two depending on how the value was set. */
+    ["iccSize", "iccW", "iccH", "iccRadius", "iccDpi", "iccPadding",
+     "iccGuides", "iccSheet"].forEach(function (id) {
+      on(id, "input", render);
+      on(id, "change", render);
+    });
+
+
+    /* downloads */
+    on("iccDlFront", "click", function () {
+      downloadCanvas(renderCard("front"), (sides.front.file || "card") + "-front.png");
+    });
+    on("iccDlBack", "click", function () {
+      downloadCanvas(renderCard("back"), (sides.back.file || "card") + "-back.png");
+    });
+    on("iccDlSheet", "click", function () {
+      if (el("iccSheet") && el("iccSheet").checked) {
+        downloadCanvas(renderSheet(), (sides.front.file || sides.back.file || "card") + "-a4-front-back.png");
+      } else {
+        var side = sides.front.img ? "front" : "back";
+        downloadCanvas(renderCard(side), (sides[side].file || "card") + ".png");
+      }
+    });
+
+    render();
+    show(panel);
+  }
+
+
   /* ============================================================= ROUTER === */
 
   var ENGINES = {
@@ -1822,6 +2340,7 @@
     "format-converter": engineFormatConverter,
     "photo-sheet": enginePhotoSheet,
     "pvc-card": enginePvcCard,
+    "id-card-crop": engineIdCardCrop,
     "age-calculator": engineAgeCalculator,
     "stamp-duty": engineStampDuty,
     "csc-commission": engineCscCommission,

@@ -36,3 +36,11 @@ npm-debug.log*
 
 # ---- Personal prompt / spec (not part of the app) ----
 Act as a Senior Full-Stack Web Deve.txt
+
+# ---- Local dev/test scratch (never part of the app) ----
+.devtest/
+
+# ---- Node (only used for local browser-based checks) ----
+node_modules/
+package-lock.json
+package.json

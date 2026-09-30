@@ -58,7 +58,7 @@ PMMVY (Matru Vandana Yojana) • Haryana ULB Property Tax & Grievance • Haryan
 PM Surya Ghar (Rooftop Solar) • Parivar Pehchan Patra (Family ID) • Saral Haryana •
 Meri Fasal Mera Byora (MFMB)
 
-> 12 tools built in-house + 19 direct links to official portals = **31**.
+> 13 tools built in-house + 19 direct links to official portals = **32**.
 
 ---
 
@@ -77,7 +77,7 @@ rkhub-tools/
 │   ├── css/style.css          # Theming (light/dark), layout, all components
 │   ├── js/
 │   │   ├── main.js            # Theme, nav, ticker, live search, back-to-top
-│   │   └── tools.js           # All 12 working tool engines (client-side)
+│   │   └── tools.js           # All 13 working tool engines (client-side)
 │   ├── vendor/                # pdf-lib + jsPDF, served locally (no CDN)
 │   └── images/                # logo.svg + rkhub-logo.* raster sizes
 │

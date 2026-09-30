@@ -291,6 +291,53 @@
     });
   }
 
+  /* ============================================ TOUCH TOOL-CARD RAIL ===== */
+
+  /* The card's animated top rail is hover-driven on desktop. Touch devices
+     never hover, so CSS keeps the rail visible but paused; resume it only for
+     the cards actually on screen. All ~186 of them animating at once would
+     repaint the whole grid on every frame. */
+  /* ============================================= TOUCH / HOVER DETECTION === */
+
+  /* The `(hover: none)` CSS feature is unreliable in practice — plenty of
+     phones report `hover: hover`, and emulation can disagree with the real
+     device. `maxTouchPoints` is the dependable signal, so decide once in JS
+     and drive both the CSS and the observers off a class on <html>. */
+  function isTouchDevice() {
+    return (navigator.maxTouchPoints || 0) > 0 ||
+           "ontouchstart" in window ||
+           (window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+  }
+
+  function initTouchFlag() {
+    if (isTouchDevice()) document.documentElement.classList.add("is-touch");
+  }
+
+  /* An IntersectionObserver with no live reference is eligible for garbage
+     collection, which silently kills its callbacks. Keep a module-level
+     handle for the lifetime of the page. */
+  var touchRailIO = null;
+
+  function initTouchRail() {
+    if (!document.documentElement.classList.contains("is-touch")) return;
+
+    var cards = $$(".tool-card");
+    if (!cards.length) return;
+
+    if (!window.IntersectionObserver) {
+      cards.forEach(function (c) { c.classList.add("is-visible"); });
+      return;
+    }
+
+    touchRailIO = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        entry.target.classList.toggle("is-visible", entry.isIntersecting);
+      });
+    }, { rootMargin: "80px 0px", threshold: 0 });
+
+    cards.forEach(function (c) { touchRailIO.observe(c); });
+  }
+
   /* ====================================================== TRUST SEAL ===== */
 
   function initTrustSeal() {
@@ -318,6 +365,7 @@
   /* ============================================================== BOOT ==== */
 
   function boot() {
+    initTouchFlag();
     initTheme();
     initNav();
     initTicker();
@@ -326,6 +374,7 @@
     initNavHighlight();
     initReveal();
     initCardStagger();
+    initTouchRail();
     initTrustSeal();
   }
 
