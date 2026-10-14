@@ -2032,8 +2032,17 @@
     function resetBox(side) { sides[side].box = { x: 0.10, y: 0.14, w: 0.80, h: 0.72 }; }
 
     function zoomOf(side) { return num("icc" + tag(side) + "Zoom", 100) / 100; }
-    function dxOf(side)   { return num("icc" + tag(side) + "Dx", 0) / 100; }
-    function dyOf(side)   { return num("icc" + tag(side) + "Dy", 0) / 100; }
+
+    /* Pan ko *asl me ghumne layak* range se map karo: -100 = photo ka ek
+       kinara, +100 = doosra kinara, 0 = centre. Pehle raw slider fraction
+       ghata diya jaata tha (±100 = poori photo!), isliye clamp ke saath
+       milkar slider lagbhag turant edge se takra jata tha aur dead lagta
+       tha. Ab poora slider range hamesha kaam karta hai, har zoom par. */
+    function panOf(center, size, id) {
+      var v = num(id, 0) / 100;
+      if (v >= 0) return center - v * center;
+      return center - v * ((1 - size) - center);
+    }
 
     /* ==================================================================
        AUTO-DETECT
@@ -2209,12 +2218,12 @@
          dikhti hai) — wahi user ko chahiye tha. Rect ko photo ke andar
          clamp karo taaki kinare kabhi blank/kaale na padein. */
       var bw = Math.min(1, b.w / z), bh = Math.min(1, b.h / z);
-      var bx = b.x + (b.w - bw) / 2 - dxOf(side);
-      var by = b.y + (b.h - bh) / 2 - dyOf(side);
-      if (bx < 0) bx = 0;
-      if (by < 0) by = 0;
-      if (bx + bw > 1) bx = Math.max(0, 1 - bw);
-      if (by + bh > 1) by = Math.max(0, 1 - bh);
+      /* Zoom-out par box se badi rect cap ho jaati hai — centre ko valid
+         range me lao, warna pan base hi frame ke bahar hoga. */
+      var cx = Math.min(Math.max(b.x + (b.w - bw) / 2, 0), Math.max(0, 1 - bw));
+      var cy = Math.min(Math.max(b.y + (b.h - bh) / 2, 0), Math.max(0, 1 - bh));
+      var bx = panOf(cx, bw, "icc" + tag(side) + "Dx");
+      var by = panOf(cy, bh, "icc" + tag(side) + "Dy");
 
       ctx.save();
       roundRectPath(ctx, dx, dy, px.w, px.h, radiusMm() * dpi() / 25.4);
