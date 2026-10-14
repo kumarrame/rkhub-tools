@@ -451,7 +451,7 @@ ICONS = {
 
 
 # ==============================================================================
-# TOOLS  (33 total — internal engines + external Government portals)
+# TOOLS  (32 total — internal engines + external Government portals)
 # ==============================================================================
 
 TOOLS = [
@@ -581,30 +581,6 @@ TOOLS = [
         "keywords": (
             "pvc card id card maker cr80 membership staff event library "
             "organisation card design print blank card template"
-        ),
-        "kind": "internal",
-    },
-    {
-        "slug": "id-card-crop",
-        "name": "PVC Card Cropper — Front & Back",
-        "name_hi": "पीवीसी कार्ड क्रॉपर",
-        "category": "image",
-        "icon": "idcard",
-        "accent": "navy",
-        "badge": "CR80",
-        "tag": "Card",
-        # This is a cropper, not a card generator. It takes a photo of a card the
-        # visitor already owns, finds it in the frame, and trims it to exact
-        # print dimensions with rounded corners and cut guides. It has no name,
-        # ID-number or emblem fields, so it cannot be used to author a new ID
-        # document — only to size up one that already exists.
-        "summary": (
-            "Apne paas maujood kisi bhi card ki photo ko exact print size "
-            "me crop/cut karein — front aur back dono, 300 DPI par."
-        ),
-        "keywords": (
-            "pvc card crop id card front back cut aadhaar pan voter card photo "
-            "crop cr80 print size rounded corners cut guide duplex"
         ),
         "kind": "internal",
     },
