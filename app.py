@@ -97,6 +97,12 @@ CSP = "; ".join(
         "style-src 'self' 'unsafe-inline'",
         "img-src 'self' data: blob:",
         "font-src 'self'",
+        # heic2any decodes iPhone HEIC inside a Web Worker that it spawns
+        # from a Blob URL (new Worker(URL.createObjectURL(...))). Without
+        # blob: here that worker is blocked and HEIC conversion silently
+        # fails in Chrome/Edge. Scoped to workers only — script-src stays
+        # strict with NO 'unsafe-inline' and NO 'unsafe-eval'.
+        "worker-src 'self' blob:",
         # All tooling is client-side, so no outbound connections are expected.
         "connect-src 'self'",
         "form-action 'self'",
@@ -445,7 +451,7 @@ ICONS = {
 
 
 # ==============================================================================
-# TOOLS  (31 total — internal engines + external Government portals)
+# TOOLS  (33 total — internal engines + external Government portals)
 # ==============================================================================
 
 TOOLS = [
@@ -528,6 +534,19 @@ TOOLS = [
         "tag": "Image",
         "summary": "Convert images between JPG, PNG and WebP with quality and max-width control.",
         "keywords": "jpg png webp convert format image quality resize compress",
+        "kind": "internal",
+    },
+    {
+        "slug": "heic-converter",
+        "name": "HEIC / Any Image to JPG Converter",
+        "name_hi": "एचईआईसी से जेपीजी",
+        "category": "image",
+        "icon": "convert",
+        "accent": "green",
+        "badge": "HEIC→JPG",
+        "tag": "Convert",
+        "summary": "iPhone HEIC / HEIF, AVIF, BMP, GIF, TIFF, SVG ya kisi bhi image ko JPG / PNG / WebP me badlein — 100% browser me.",
+        "keywords": "heic heif iphone to jpg jpeg png convert any image avif bmp gif tiff svg webp photo",
         "kind": "internal",
     },
     {

@@ -31,6 +31,27 @@ jsPDF bundles further third-party components whose notices are retained in the
 file, including work by yWorks GmbH, Lukas Holländer, Aras Abbasi, Aaron Spike,
 Willow Systems Corporation, Pablo Hess, Florian Jenett and Warren Weckesser.
 
+## heic2any 0.0.4
+
+* **File:** `static/vendor/heic2any.min.js`
+* **Project:** https://github.com/alexcorvi/heic2any
+* **Upstream licence:** MIT (Copyright (c) Alex Corvi)
+* **Size:** 1,351,840 bytes
+* **SHA-384:** `OTofQ0MEeiSgh62havBcemCIK0gqj809wX6UA0uPISNMRnR6NZyCdGzX3SbLrgwL`
+
+> **Note on the minified bundle.**
+> The upstream `dist/heic2any.min.js` ships without its licence header, so the
+> MIT notice is recorded here instead of inside the file. Do not strip this
+> section when upgrading.
+>
+> **Note on the Web Worker.**
+> At runtime heic2any spawns its libheif decoder in a Web Worker created from
+> a Blob URL (`new Worker(URL.createObjectURL(...))`). That is why the
+> Content-Security-Policy carries `worker-src 'self' blob:` (see `app.py`) —
+> without it the worker is blocked and HEIC conversion fails in Chrome/Edge
+> while Safari (native HEIC) keeps working. The worker runs same-origin code
+> only; no network request is involved.
+
 ---
 
 ## Why vendored
@@ -59,7 +80,15 @@ leave your device" claim on the site actually true.
 ```powershell
 Get-FileHash static\vendor\pdf-lib.min.js  -Algorithm SHA384
 Get-FileHash static\vendor\jspdf.umd.min.js -Algorithm SHA384
+Get-FileHash static\vendor\heic2any.min.js  -Algorithm SHA384
 ```
+
+> `Get-FileHash` prints hex. The `SHA-384` values above are the SRI form
+> (base64 of the raw digest). To recompute one:
+>
+> ```powershell
+> python -c "import hashlib,base64; print(base64.b64encode(hashlib.sha384(open('static\vendor\heic2any.min.js','rb').read()).digest()).decode())"
+> ```
 
 Compare the base64 suffix against the values above. To upgrade, update the file,
 recompute both hashes, and re-run the tool smoke tests.

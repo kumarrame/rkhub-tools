@@ -37,7 +37,8 @@
      See THIRD_PARTY_NOTICES.md for versions, licences and integrity hashes. */
   var VENDOR = {
     pdfLib: "/static/vendor/pdf-lib.min.js",
-    jspdf: "/static/vendor/jspdf.umd.min.js"
+    jspdf: "/static/vendor/jspdf.umd.min.js",
+    heic: "/static/vendor/heic2any.min.js"
   };
 
   function fmtBytes(n) {
@@ -1016,6 +1017,148 @@
       hide(panel); show($("dropZone"));
       canvasWrap.innerHTML = "";
       ["fcOrig", "fcNew", "fcDims"].forEach(function (i) { setStat(i, "—"); });
+      if (dl) dl.disabled = true;
+      var fi = $("fileInput");
+      if (fi) fi.value = "";
+    });
+  }
+
+  /* ======================================================================
+     6a. HEIC / ANY IMAGE to JPG CONVERTER (HEIC, HEIF, AVIF, BMP, GIF,
+         TIFF, SVG, PNG, WebP -> JPG / PNG / WebP)
+     ----------------------------------------------------------------------
+     Native path: <img> / createImageBitmap se decode, canvas se re-encode.
+     HEIC path: Safari native padh leta hai; Chrome/Edge ke liye vendored
+     heic2any (/static/vendor/heic2any.min.js) try hota hai agar maujood ho.
+     File maujood na ho to original HEIC error message hi dikhta hai —
+     tool kabhi silent fail nahi hota.
+     ==================================================================== */
+
+  function engineHeicConverter() {
+    var panel = panelFor("heic-converter");
+    var canvasWrap = $("wsCanvas");
+    var dl = $("downloadBtn");
+    var current = null;
+    var currentName = "rkhub-image";
+    var origSize = 0;
+    var heicConverted = false;
+
+    var gQuality = bindRange("hcQuality", "hcQualityOut", function (v) { return (v / 100).toFixed(2); });
+    var gMaxW = bindRange("hcMaxWidth", "hcMaxWidthOut", function (v) {
+      return v === 0 ? "0 = original" : v + " px";
+    });
+
+    function fmt() { var e = $("hcFormat"); return e ? e.value : "image/jpeg"; }
+    function quality() { return gQuality() / 100; }
+    function setStat(id, v) { var e = $(id); if (e) e.textContent = v; }
+    function setInfo(t) { var e = $("hcInfo"); if (e) e.textContent = t; }
+
+    function ext() {
+      var m = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
+      return m[fmt()] || "jpg";
+    }
+
+    /* readImage pehle try karo; HEIC ho aur native fail ho to heic2any se
+       PNG blob banao aur use dobara decode karo. */
+    function decodeAny(file) {
+      return readImage(file)["catch"](function (firstErr) {
+        return readHead(file, 16).then(function (head) {
+          var format = sniffFormat(head);
+          var extn = (((file && file.name) || "").split(".").pop() || "").toLowerCase();
+          var isHeic = format === "heic" ||
+            ["heic", "heif", "hif"].indexOf(extn) >= 0 ||
+            /^(image\/hei[cf]|image\/heif-sequence|image\/heic-sequence)$/.test(file.type || "");
+          if (!isHeic) throw firstErr;
+          return loadScript(VENDOR.heic).then(function () {
+            var heic2any = window.heic2any;
+            if (!heic2any) throw firstErr;
+            showBusy("HEIC decode ho rahi hai — badi photo me thoda waqt lagega…");
+            return heic2any({ blob: file, toType: "image/png" }).then(function (out) {
+              var blob = Array.isArray(out) ? out[0] : out;
+              if (!blob) throw firstErr;
+              var name = (file.name || "photo").replace(/\.[^.]+$/, "") + ".png";
+              var conv = (typeof File !== "undefined")
+                ? new File([blob], name, { type: "image/png" })
+                : blob;
+              return readImage(conv).then(function (r) {
+                r.convertedFromHeic = true;
+                return r;
+              });
+            });
+          })["catch"](function (e2) {
+            if (e2 && e2.userMessage) throw e2;
+            throw firstErr;
+          });
+        });
+      });
+    }
+
+    function render() {
+      if (!current) return;
+      var W = current.naturalWidth, H = current.naturalHeight;
+      var maxW = gMaxW();
+      var scale = (maxW > 0 && W > maxW) ? maxW / W : 1;
+      var w = Math.max(1, Math.round(W * scale));
+      var h = Math.max(1, Math.round(H * scale));
+
+      var canvas = mountCanvas(canvasWrap, w, h);
+      var ctx = canvas.getContext("2d");
+      ctx.imageSmoothingQuality = "high";
+
+      // JPG me alpha nahi hota — safed par flatten karo (transparency kaale na pade).
+      if (fmt() === "image/jpeg") {
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(0, 0, w, h);
+      }
+      ctx.drawImage(current, 0, 0, w, h);
+
+      canvas.toBlob(function (blob) {
+        setStat("hcOrig", fmtBytes(origSize));
+        setStat("hcNew", fmtBytes(blob ? blob.size : 0));
+        setStat("hcDims", w + " × " + h);
+      }, fmt(), quality());
+    }
+
+    initFileInput("image/*,.heic,.heif,.hif,.avif,.bmp,.gif,.tif,.tiff,.svg,.png,.jpg,.jpeg,.webp", function (files) {
+      var picked = files[0];
+      return decodeAny(picked).then(function (r) {
+        current = r.img;
+        currentName = (picked.name || "rkhub-image").replace(/\.[^.]+$/, "");
+        origSize = picked.size;
+        heicConverted = !!r.convertedFromHeic;
+        show(panel);
+        hide($("dropZone"));
+        if (heicConverted) {
+          setInfo("HEIC se photo safaltapurvak padh li gayi — ab output format chunein aur Download dabayein.");
+        } else {
+          setInfo("Photo padh li gayi (" + fmtBytes(origSize) + ") — output format chunein aur Download dabayein.");
+        }
+        render();
+        if (dl) dl.disabled = false;
+      });
+    });
+
+    ["hcFormat", "hcQuality", "hcMaxWidth"].forEach(function (id) {
+      var e = $(id);
+      if (e) e.addEventListener("input", render);
+      if (e) e.addEventListener("change", render);
+    });
+
+    if (dl) {
+      dl.addEventListener("click", function () {
+        var c = canvasWrap.querySelector("canvas");
+        if (!c) return;
+        downloadCanvas(c, currentName + "-converted." + ext(), fmt(), quality());
+      });
+    }
+
+    bindReset(function () {
+      current = null; origSize = 0; heicConverted = false;
+      currentName = "rkhub-image";
+      hide(panel); show($("dropZone"));
+      canvasWrap.innerHTML = "";
+      ["hcOrig", "hcNew", "hcDims"].forEach(function (i) { setStat(i, "—"); });
+      setInfo("HEIC, HEIF, AVIF, BMP, GIF, TIFF, SVG, PNG, WebP — koi bhi photo chunein, output JPG / PNG / WebP me milega.");
       if (dl) dl.disabled = true;
       var fi = $("fileInput");
       if (fi) fi.value = "";
@@ -2338,6 +2481,7 @@
     "signature-extractor": engineSignature,
     "document-crop": engineDocCrop,
     "format-converter": engineFormatConverter,
+    "heic-converter": engineHeicConverter,
     "photo-sheet": enginePhotoSheet,
     "pvc-card": enginePvcCard,
     "id-card-crop": engineIdCardCrop,

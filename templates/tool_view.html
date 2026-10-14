@@ -153,6 +153,7 @@
           <!-- ============= FILE BASED TOOLS (drop zone) ================= -->
           {% if tool.slug in ['passport-photo', 'pdf-compressor', 'image-to-pdf',
                               'signature-extractor', 'document-crop', 'format-converter',
+                              'heic-converter',
                               'photo-sheet', 'pvc-card'] %}
           <div class="ws-drop" id="dropZone" data-multi="{{ '1' if tool.slug == 'image-to-pdf' else '0' }}">
             <span class="tool-arch tool-arch--lg" aria-hidden="true">
@@ -173,9 +174,9 @@
               🔒 सारी प्रोसेसिंग आपके ब्राउज़र में ही होती है — कोई फाइल सर्वर पर अपलोड या सेव नहीं होती।
             </p>
             <p class="ws-hint">
-              JPG · PNG · WebP supported
+              {% if tool.slug == 'heic-converter' %}HEIC · HEIF · AVIF · BMP · GIF · TIFF · SVG · JPG · PNG · WebP — koi bhi image chalegi{% else %}JPG · PNG · WebP supported{% endif %}
               {% if tool.slug == 'image-to-pdf' %} · एक साथ कई फाइलें चुन सकते हैं{% endif %}<br />
-              HEIC/HEIF (iPhone photo) chalegi to browser par error dikhega — tab Settings → Camera → Formats = <strong>Most Compatible</strong> kar ke dobara try karein.
+              {% if tool.slug == 'heic-converter' %}iPhone HEIC photo seedha chunein — Safari me direct convert hogi, Chrome/Edge me auto-decoder try hoga, na ho to iPhone Settings → Camera → Formats = <strong>Most Compatible</strong> karke dobara try karein.{% else %}HEIC/HEIF (iPhone photo) chalegi to browser par error dikhega — tab Settings → Camera → Formats = <strong>Most Compatible</strong> kar ke dobara try karein.{% endif %}
             </p>
           </div>
           {% endif %}
@@ -725,6 +726,47 @@
               <div class="ws-actions">
                 <button class="btn btn--amber" type="button" id="downloadBtn" disabled>
                   <svg class="ico" aria-hidden="true"><use href="#i-download"></use></svg> Download
+                </button>
+                <button class="btn btn--ghost" type="button" id="resetBtn">Reset</button>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- HEIC / Any Image to JPG Converter -->
+          {% if tool.slug == 'heic-converter' %}
+          <div class="ws-panel" data-panel="heic-converter" hidden>
+            <div class="ws-panel__controls">
+              <h3 class="ws-panel__title">Output Settings / आउटपुट सेटिंग</h3>
+              <div class="field">
+                <label for="hcFormat">Output Format</label>
+                <select id="hcFormat">
+                  <option value="image/jpeg" selected>JPG / JPEG — form upload ke liye best</option>
+                  <option value="image/png">PNG — max quality (badi file)</option>
+                  <option value="image/webp">WebP — chhoti file, modern</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="hcQuality">Quality <output id="hcQualityOut">0.92</output></label>
+                <input type="range" id="hcQuality" min="10" max="100" value="92" />
+              </div>
+              <div class="field">
+                <label for="hcMaxWidth">Max Width <output id="hcMaxWidthOut">0 = original</output></label>
+                <input type="range" id="hcMaxWidth" min="0" max="4000" step="50" value="0" />
+              </div>
+              <p class="ws-hint" id="hcInfo">HEIC, HEIF, AVIF, BMP, GIF, TIFF, SVG, PNG, WebP — koi bhi photo chunein, output JPG / PNG / WebP me milega.</p>
+            </div>
+            <div class="ws-panel__preview">
+              <h3 class="ws-panel__title">Preview / पूर्वावलोकन</h3>
+              <div class="ws-canvas" id="wsCanvas"></div>
+              <div class="ws-stats">
+                <div class="ws-stat"><span class="ws-stat__lbl">Original</span><span class="ws-stat__val" id="hcOrig">—</span></div>
+                <div class="ws-stat"><span class="ws-stat__lbl">Output</span><span class="ws-stat__val" id="hcNew">—</span></div>
+                <div class="ws-stat"><span class="ws-stat__lbl">Dimensions</span><span class="ws-stat__val" id="hcDims">—</span></div>
+              </div>
+              <div class="ws-actions">
+                <button class="btn btn--amber" type="button" id="downloadBtn" disabled>
+                  <svg class="ico" aria-hidden="true"><use href="#i-download"></use></svg> Download Converted
                 </button>
                 <button class="btn btn--ghost" type="button" id="resetBtn">Reset</button>
               </div>

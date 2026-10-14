@@ -12,9 +12,9 @@ tools, image tools, official portal links, welfare schemes और calculators �
 ## ✨ Features
 
 - 🌗 **Day / Night (Dark/Light) toggle** — `localStorage` se yaad rehta hai
-- 🔍 Instant **live search** across all 31 tools (`/` key shortcut)
+- 🔍 Instant **live search** across all 33 tools (`/` key shortcut)
 - 🧮 4 **fully working calculators**
-- 🖼️ 8 **working client-side document/image tools**
+- 🖼️ 10 **working client-side document/image tools**
 - 🔗 19 **official Government portals** (PM-Kisan, Aadhaar, E-Shram, PM-JAY, Passport, EPFO, …)
 - 📞 Owner contact in top bar, contact section और footer
 - 📱 Fully responsive (mobile / tablet / desktop) + accessible (ARIA, skip-link, focus rings)
@@ -23,7 +23,7 @@ tools, image tools, official portal links, welfare schemes और calculators �
 - 🛡️ Strict **Content-Security-Policy** — zero third-party requests, zero inline handlers
 - ⚡ Server-side **gzip** and **ETag** revalidation on every response
 
-## 🛠 31 Tools
+## 🛠 33 Tools
 
 **Document Tools (4)**
 
@@ -32,19 +32,21 @@ tools, image tools, official portal links, welfare schemes और calculators �
 3. Signature & Thumb Extractor (B&W + threshold) — सिग्नेचर और अंगूठा
 4. Document Crop & Auto-Enhance — डॉक्यूमेंट क्रॉप
 
-**Image Tools (4)**
+**Image Tools (6)**
 
 5. Passport Photo Maker (3.5 × 4.5 cm @300 DPI + background changer) — पासपोर्ट फोटो मेकर
 6. JPG to PNG / WebP Converter — इमेज कन्वर्टर
-7. Photo Sheet Printer (4–36 copies on A4) — फोटो शीट प्रिंटर
-8. PVC Card Maker (CR80 85.6 × 54 mm) — पीवीसी कार्ड मेकर
+7. HEIC / Any Image to JPG Converter (iPhone HEIC → JPG/PNG/WebP) — एचईआईसी से जेपीजी
+8. Photo Sheet Printer (4–36 copies on A4) — फोटो शीट प्रिंटर
+9. PVC Card Maker (CR80 85.6 × 54 mm) — पीवीसी कार्ड मेकर
+10. PVC Card Cropper — Front & Back (CR80) — पीवीसी कार्ड क्रॉपर
 
 **Calculators (4)**
 
-9. Official Form Age Calculator (exact Y/M/D + next birthday)
-10. Stamp Duty & Fee Estimator (Haryana / Delhi / UP / MH / KA / custom)
-11. CSC Commission & Tax Calculator (gross, TDS, GST, net, profit)
-12. File Size Unit Converter (Bytes ⇄ KB ⇄ MB ⇄ GB ⇄ TB)
+11. Official Form Age Calculator (exact Y/M/D + next birthday)
+12. Stamp Duty & Fee Estimator (Haryana / Delhi / UP / MH / KA / custom)
+13. CSC Commission & Tax Calculator (gross, TDS, GST, net, profit)
+14. File Size Unit Converter (Bytes ⇄ KB ⇄ MB ⇄ GB ⇄ TB)
 
 **Direct Portals (12)**
 
@@ -58,7 +60,7 @@ PMMVY (Matru Vandana Yojana) • Haryana ULB Property Tax & Grievance • Haryan
 PM Surya Ghar (Rooftop Solar) • Parivar Pehchan Patra (Family ID) • Saral Haryana •
 Meri Fasal Mera Byora (MFMB)
 
-> 13 tools built in-house + 19 direct links to official portals = **32**.
+> 14 tools built in-house + 19 direct links to official portals = **33**.
 
 ---
 
@@ -77,7 +79,7 @@ rkhub-tools/
 │   ├── css/style.css          # Theming (light/dark), layout, all components
 │   ├── js/
 │   │   ├── main.js            # Theme, nav, ticker, live search, back-to-top
-│   │   └── tools.js           # All 13 working tool engines (client-side)
+│   │   └── tools.js           # All 14 working tool engines (client-side)
 │   ├── vendor/                # pdf-lib + jsPDF, served locally (no CDN)
 │   └── images/                # logo.svg + rkhub-logo.* raster sizes
 │
