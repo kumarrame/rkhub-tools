@@ -1402,10 +1402,12 @@
       red:      { bg: ["#E53935", "#8E0000"], fg: "#FFFFFF", muted: "rgba(255,255,255,.78)", bar: "#FFB300" },
       green:    { bg: ["#2E9E4F", "#0B4F1E"], fg: "#FFFFFF", muted: "rgba(255,255,255,.78)", bar: "#FFB300" },
       amber:    { bg: ["#FFB300", "#E07C00"], fg: "#3A2A00", muted: "rgba(58,42,0,.78)", bar: "#0F2942" },
-      // The previous "tricolor" theme painted the card in saffron/white/green.
-      // On an ID-shaped card that reads as an imitation national emblem and
-      // makes the output look government-issued. Replaced with a neutral
-      // slate/teal pairing.
+      // Tiranga is offered as accent stripes on a neutral base — never as a
+      // full saffron/white/green background. A full tricolor background on
+      // an ID-shaped card reads as an imitation government-issued document;
+      // stripes give the flag colours without that look.
+      tricolor:  { bg: ["#16395C", "#0A1C2E"], fg: "#FFFFFF", muted: "rgba(255,255,255,.75)", bar: "#FF9933",
+                   stripes: ["#FF9933", "#FFFFFF", "#138808"] },
       teal:     { bg: ["#0F5257", "#062F31"], fg: "#FFFFFF", muted: "rgba(255,255,255,.78)", bar: "#38BDF8" },
       white:    { bg: ["#FFFFFF", "#EEF2F7"], fg: "#16202C", muted: "rgba(22,32,44,.65)", bar: "#D32F2F" }
     };
@@ -1437,12 +1439,20 @@
       ctx.fillStyle = g;
       ctx.fill();
 
-      // subtle top accent bar
+      // subtle top accent bar (tiranga: three stripes instead of one bar)
       ctx.save();
       roundRect(ctx, 0, 0, CW, CH, R);
       ctx.clip();
-      ctx.fillStyle = t.bar;
-      ctx.fillRect(0, 0, CW, 10);
+      if (t.stripes) {
+        var bandH = 8;
+        for (var si = 0; si < t.stripes.length; si++) {
+          ctx.fillStyle = t.stripes[si];
+          ctx.fillRect(0, si * bandH, CW, bandH);
+        }
+      } else {
+        ctx.fillStyle = t.bar;
+        ctx.fillRect(0, 0, CW, 10);
+      }
 
       // ---- header
       var pad = 34;
