@@ -265,6 +265,16 @@
     ctx.drawImage(img, tx + (tw - w) / 2, ty + (th - h) / 2, w, h);
   }
 
+  /* fit an image inside a target box (contain-fit): poori photo dikhti
+     hai, bachi jagah me background colour — Passport Photo Maker ka
+     background changer tabhi kaam karta hai. */
+  function drawContain(ctx, img, tx, ty, tw, th) {
+    var scale = Math.min(tw / img.naturalWidth, th / img.naturalHeight);
+    var w = img.naturalWidth * scale;
+    var h = img.naturalHeight * scale;
+    ctx.drawImage(img, tx + (tw - w) / 2, ty + (th - h) / 2, w, h);
+  }
+
   function bindRange(id, outId, format) {
     var el = $(id), out = $(outId);
     if (!el || !out) return function () { return parseFloat(el.value); };
@@ -469,7 +479,10 @@
       ctx.scale(zoom, zoom);
       ctx.translate(-PP_W / 2, -PP_H / 2);
       ctx.filter = cssFilter(gBrightness(), gContrast());
-      drawCover(ctx, img, 0, 0, inner.w, inner.h);
+      // contain-fit: photo frame ke andar poori dikhe, khaali jagah me
+      // chuna hua background — warna photo background ko poora dhak leti
+      // hai aur Background colour badalne par kuch dikhta hi nahi.
+      drawContain(ctx, img, 0, 0, inner.w, inner.h);
       ctx.restore();
 
       // thin border so the print sheet reads clearly
