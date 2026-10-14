@@ -2212,37 +2212,33 @@
       var b = box(side);
       var z = zoomOf(side);
       var sw = s.img.naturalWidth, sh = s.img.naturalHeight;
+      var pa = sw / sh;
+      var tA = targetMm().w / targetMm().h;
 
-      /* Source rectangle = the box, shrunk about its centre by the zoom.
-         Zoom > 100% crops *tighter*, zoom < 100% zooms *out* (poori photo
-         dikhti hai) — wahi user ko chahiye tha. Rect ko photo ke andar
-         clamp karo taaki kinare kabhi blank/kaale na padein. */
-      var bw = Math.min(1, b.w / z), bh = Math.min(1, b.h / z);
-      /* Zoom-out par box se badi rect cap ho jaati hai — centre ko valid
-         range me lao, warna pan base hi frame ke bahar hoga. */
-      var cx = Math.min(Math.max(b.x + (b.w - bw) / 2, 0), Math.max(0, 1 - bw));
-      var cy = Math.min(Math.max(b.y + (b.h - bh) / 2, 0), Math.max(0, 1 - bh));
-      var bx = panOf(cx, bw, "icc" + tag(side) + "Dx");
-      var by = panOf(cy, bh, "icc" + tag(side) + "Dy");
+      /* Card-aspect frame: zoomed box ko COVER karta hai, photo ke andar
+         cap hota hai. Frame khud hi card aspect ka hai, isliye output
+         bina kisi chhupi hui cover-fit katai ke exact bharta hai — jo
+         position karo wahi print hota hai.
+         Zoom > 100% = tighter, zoom < 100% = wider. Pan sliders frame ko
+         photo me ghumaate hain; zoom-out par bhi travel bachta hai (frame
+         photo se chhota rehta hai jab aspects alag hon), isliye Left/Right
+         aur Up/Down hamesha kaam karte hain. */
+      var zbw = b.w / z, zbh = b.h / z;
+      var fw = Math.max(zbw, zbh * tA / pa);
+      var fh = fw * pa / tA;
+      if (fw > 1) { fw = 1; fh = fw * pa / tA; }
+      if (fh > 1) { fh = 1; fw = fh * tA / pa; }
+      var ccx = Math.min(Math.max(b.x + (b.w - fw) / 2, 0), Math.max(0, 1 - fw));
+      var ccy = Math.min(Math.max(b.y + (b.h - fh) / 2, 0), Math.max(0, 1 - fh));
+      var fx = panOf(ccx, fw, "icc" + tag(side) + "Dx");
+      var fy = panOf(ccy, fh, "icc" + tag(side) + "Dy");
 
       ctx.save();
       roundRectPath(ctx, dx, dy, px.w, px.h, radiusMm() * dpi() / 25.4);
       ctx.clip();
 
-      var outAspect = px.w / px.h;
-      var sx2 = 0, sy2 = 0;
-      var sw2 = bw * sw, sh2 = bh * sh;
-
-      if ((sw2 / sh2) > outAspect) {      /* source too wide -> crop sides */
-        var nw = sh2 * outAspect;
-        sw2 = nw; sx2 = (bw * sw - nw) / 2;
-      } else {                             /* source too tall -> crop top/bottom */
-        var nh = sw2 / outAspect;
-        sh2 = nh; sy2 = (bh * sh - nh) / 2;
-      }
-
       ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(s.img, bx * sw + (sx2 || 0), by * sh + (sy2 || 0), sw2, sh2,
+      ctx.drawImage(s.img, fx * sw, fy * sh, fw * sw, fh * sh,
                     dx, dy, px.w, px.h);
       ctx.restore();
 
