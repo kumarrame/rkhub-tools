@@ -1974,7 +1974,13 @@
       "125x88":      { w: 125,   h: 88 },
       "85.6x53.98":  { w: 85.6,  h: 53.98 }
     };
-    var A4 = { w: 210, h: 297 };
+    /* Printable sheet sizes, in millimetres. */
+    var SHEETS = {
+      a4:     { w: 210,   h: 297,   label: "A4" },
+      letter: { w: 215.9, h: 279.4, label: "Letter" },
+      legal:  { w: 215.9, h: 355.6, label: "Legal" },
+      a3:     { w: 297,   h: 420,   label: "A3" }
+    };
 
     var sides = {
       front: { img: null, box: null, file: "" },
@@ -2294,64 +2300,122 @@
       var mm = targetMm();
       var px = cardPx();
       var pad = paddingMm() * d / 25.4;
-      var pw = Math.round(A4.w * d / 25.4);
-      var ph = Math.round(A4.h * d / 25.4);
+      var sh = sheetMm();
+      var mode = sheetLayout();
+      var sets = sheetCopies();
+      var pw = Math.round(sh.w * d / 25.4);
+      var ph = Math.round(sh.h * d / 25.4);
       var label = Math.max(10, pw / 120);
+      var gap = pad;
 
+      var pages = mode === "duplex" ? 2 : 1;
       var cv = document.createElement("canvas");
       cv.width = pw;
-      cv.height = ph * 2;
+      cv.height = ph * pages;
       var ctx = cv.getContext("2d");
 
       ctx.fillStyle = "#fff";
       ctx.fillRect(0, 0, cv.width, cv.height);
+      ctx.imageSmoothingQuality = "high";
 
-      var pages = [
-        { side: "front", label: "PAGE 1 — FRONT / सामने" },
-        { side: "back",  label: "PAGE 2 — BACK / पीछे" }
-      ];
-
-      pages.forEach(function (pg, pi) {
-        var oy = ph * pi;
-        ctx.fillStyle = "rgba(0,0,0,.55)";
-        ctx.font = label + "px ui-monospace, Menlo, Consolas, monospace";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(pg.label + "   ·   " + mm.w + "×" + mm.h + " mm   ·   " + dpi() + " DPI",
-                     pw / 2, oy + pad * 0.7);
-
-        if (!sides[pg.side].img) {
-          ctx.fillStyle = "rgba(0,0,0,.3)";
-          ctx.fillText("(no photo added for this side)", pw / 2, oy + ph / 2);
-          return;
+      /* Which card sides go on page `pi` (0-based). Duplex puts `sets`
+         copies of one side per page; every other mode puts front+back
+         (or one side) together on a single page. */
+      function itemsFor(pi) {
+        var items = [];
+        var k;
+        if (mode === "duplex") {
+          var side = pi === 0 ? "front" : "back";
+          for (k = 0; k < sets; k++) items.push(side);
+        } else if (mode === "front") {
+          for (k = 0; k < sets; k++) items.push("front");
+        } else if (mode === "back") {
+          for (k = 0; k < sets; k++) items.push("back");
+        } else {
+          for (k = 0; k < sets; k++) items.push("front", "back");
         }
+        return items;
+      }
 
-        var label = Math.max(10, pw / 120);
+      function pageLabel(pi) {
+        var base = sh.label + "  ·  " + mm.w + "×" + mm.h + " mm  ·  " + dpi() + " DPI";
+        if (mode === "duplex") {
+          return (pi === 0 ? "PAGE 1 — FRONT / सामने" : "PAGE 2 — BACK / पीछे") + "   ·   " + base;
+        }
+        if (mode === "front") return "FRONT / सामने   ·   " + base;
+        if (mode === "back") return "BACK / पीछे   ·   " + base;
+        return "FRONT + BACK / सामने + पीछे — ek page par   ·   " + base;
+      }
 
+      /* Lay `items` out in the best-fit grid inside one page: try every
+         column count and keep the one with the biggest card scale, so a
+         single front+back pair lands side-by-side at full size instead of
+         one card stretched over the whole page. */
+      function tilePage(items, oy) {
         var availW = pw - pad * 2;
         var availH = ph - pad * 2 - label * 2;
-        var fit = Math.min(availW / px.w, availH / px.h);
-        var cw = px.w * fit, ch = px.h * fit;
-
-        /* Count cards per row from the *fitted* size, not the raw 300 DPI
-           size, otherwise the last card overflows the page. */
-        var perRow = Math.max(1, Math.floor((availW + pad) / (cw + pad)));
-        var rows = Math.max(1, Math.floor((availH + pad) / (ch + pad)));
-        var gridW = perRow * cw + (perRow - 1) * pad;
-        var startX = (pw - gridW) / 2;
-        var startY = oy + pad + label * 2;
-
-        ctx.imageSmoothingQuality = "high";
-        for (var i = 0; i < perRow * rows; i++) {
-          var col = i % perRow, row = (i / perRow) | 0;
-          var x = startX + col * (cw + pad);
-          var y = startY + row * (ch + pad);
-          if (y + ch > oy + ph - pad * 0.5) break;
-          ctx.drawImage(renderCard(pg.side), x, y, cw, ch);
+        var T = items.length;
+        var best = { cols: 1, rows: T, s: 0 };
+        var c2, rows2, cw2, ch2, s2;
+        for (c2 = 1; c2 <= T; c2++) {
+          rows2 = Math.ceil(T / c2);
+          cw2 = (availW - gap * (c2 - 1)) / c2;
+          ch2 = (availH - gap * (rows2 - 1)) / rows2;
+          s2 = Math.min(cw2 / px.w, ch2 / px.h);
+          if (s2 > best.s) best = { cols: c2, rows: rows2, s: s2 };
         }
-      });
+        var cw = px.w * best.s, ch = px.h * best.s;
+        var gridW = cw * best.cols + gap * (best.cols - 1);
+        var gridH = ch * best.rows + gap * (best.rows - 1);
+        var startX = (pw - gridW) / 2;
+        var startY = oy + pad + label * 2 + (availH - gridH) / 2;
+        items.forEach(function (side, i) {
+          var col = i % best.cols, row = (i / best.cols) | 0;
+          ctx.drawImage(renderCard(side),
+                        startX + col * (cw + gap), startY + row * (ch + gap), cw, ch);
+        });
+      }
+
+      for (var pi = 0; pi < pages; pi++) {
+        (function (page) {
+          var oy = ph * page;
+          var items = itemsFor(page);
+          ctx.fillStyle = "rgba(0,0,0,.55)";
+          ctx.font = label + "px ui-monospace, Menlo, Consolas, monospace";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(pageLabel(page), pw / 2, oy + pad * 0.7);
+          var anyImg = items.some(function (s) { return sides[s].img; });
+          if (!anyImg) {
+            ctx.fillStyle = "rgba(0,0,0,.3)";
+            ctx.fillText("(pehle photo add karein)", pw / 2, oy + ph / 2);
+            return;
+          }
+          // renderCard draws a dashed placeholder for a side with no photo,
+          // so a half-filled pair still prints honestly.
+          tilePage(items, oy);
+        })(pi);
+      }
 
       return cv;
+    }
+
+    function sheetMm() {
+      var key = (el("iccSheetSize") || {}).value || "a4";
+      return SHEETS[key] || SHEETS.a4;
+    }
+
+    function sheetKey() {
+      return (el("iccSheetSize") || {}).value || "a4";
+    }
+
+    function sheetLayout() {
+      return (el("iccLayout") || {}).value || "side";
+    }
+
+    function sheetCopies() {
+      var v = parseInt(((el("iccCopies") || {}).value || "1"), 10);
+      return Math.min(8, Math.max(1, isFinite(v) ? v : 1));
     }
 
     /* ---- file loading -------------------------------------------------- */
@@ -2445,7 +2509,7 @@
        while <select> reliably fires "change", and some browsers fire only
        one of the two depending on how the value was set. */
     ["iccSize", "iccW", "iccH", "iccRadius", "iccDpi", "iccPadding",
-     "iccGuides", "iccSheet"].forEach(function (id) {
+     "iccGuides", "iccLayout", "iccSheetSize", "iccCopies"].forEach(function (id) {
       on(id, "input", render);
       on(id, "change", render);
     });
@@ -2459,12 +2523,8 @@
       downloadCanvas(renderCard("back"), (sides.back.file || "card") + "-back.png");
     });
     on("iccDlSheet", "click", function () {
-      if (el("iccSheet") && el("iccSheet").checked) {
-        downloadCanvas(renderSheet(), (sides.front.file || sides.back.file || "card") + "-a4-front-back.png");
-      } else {
-        var side = sides.front.img ? "front" : "back";
-        downloadCanvas(renderCard(side), (sides[side].file || "card") + ".png");
-      }
+      var base = (sides.front.file || sides.back.file || "card");
+      downloadCanvas(renderSheet(), base + "-" + sheetKey() + "-" + sheetLayout() + ".png");
     });
 
     render();
