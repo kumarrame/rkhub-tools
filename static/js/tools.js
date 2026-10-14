@@ -2115,7 +2115,38 @@
       if (bw < 0.15 || bh < 0.15 || bw > 0.99 || bh > 0.99) return false;
 
       var b = box(side);
-      b.x = minX / W; b.y = minY / H; b.w = bw; b.h = bh;
+      /* Padding taaki card ki edge khud na kat jaye — detector aksar
+         1-2 px tight pakadta hai, aur uske baad cover-fit aur kat-ta hai. */
+      var padX = 0.035, padY = 0.035;
+      var ex0 = minX / W - padX, ey0 = minY / H - padY;
+      var ex1 = (maxX + 1) / W + padX, ey1 = (maxY + 1) / H + padY;
+      b.x = Math.max(0, ex0);
+      b.y = Math.max(0, ey0);
+      b.w = Math.min(1 - b.x, ex1 - b.x);
+      b.h = Math.min(1 - b.y, ey1 - b.y);
+
+      /* Box ko target card ke aspect se match karo (chhoti side failao).
+         Bina iske cover-fit box ko card size me bharne ke liye sides
+         kaat-ta hai — yahi "apne aap crop" wali shikayat thi. */
+      var pa = sc.naturalWidth / sc.naturalHeight;
+      var mm0 = targetMm();
+      var tAspect = mm0.w / mm0.h;
+      var boxAspect = (b.w * pa) / Math.max(1e-6, b.h);
+      if (boxAspect > tAspect) {
+        var needH = (b.w * pa) / tAspect;
+        var dh = (needH - b.h) / 2;
+        b.y -= dh; b.h = needH;
+      } else {
+        var needW = (b.h * tAspect) / pa;
+        var dw = (needW - b.w) / 2;
+        b.x -= dw; b.w = needW;
+      }
+      /* Frame ke andar wapas lao (edge par thoda aspect bigad sakta hai,
+         par blank area kabhi nahi aayega). */
+      if (b.x < 0) { b.w += b.x; b.x = 0; }
+      if (b.y < 0) { b.h += b.y; b.y = 0; }
+      if (b.x + b.w > 1) b.w = 1 - b.x;
+      if (b.y + b.h > 1) b.h = 1 - b.y;
       syncNudge(side);
       return true;
     }
@@ -2174,11 +2205,16 @@
       var sw = s.img.naturalWidth, sh = s.img.naturalHeight;
 
       /* Source rectangle = the box, shrunk about its centre by the zoom.
-         Zoom > 1 therefore crops *tighter*, which is what people expect
-         from a "zoom" control here. */
+         Zoom > 100% crops *tighter*, zoom < 100% zooms *out* (poori photo
+         dikhti hai) — wahi user ko chahiye tha. Rect ko photo ke andar
+         clamp karo taaki kinare kabhi blank/kaale na padein. */
       var bw = Math.min(1, b.w / z), bh = Math.min(1, b.h / z);
       var bx = b.x + (b.w - bw) / 2 - dxOf(side);
       var by = b.y + (b.h - bh) / 2 - dyOf(side);
+      if (bx < 0) bx = 0;
+      if (by < 0) by = 0;
+      if (bx + bw > 1) bx = Math.max(0, 1 - bw);
+      if (by + bh > 1) by = Math.max(0, 1 - bh);
 
       ctx.save();
       roundRectPath(ctx, dx, dy, px.w, px.h, radiusMm() * dpi() / 25.4);

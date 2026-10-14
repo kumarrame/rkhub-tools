@@ -620,8 +620,8 @@
                 </select>
               </div>
               <div class="field">
-                <label for="iccRadius">Corner radius <output id="iccRadiusOut">3.18 mm</output></label>
-                <input type="range" id="iccRadius" min="0" max="120" step="1" value="32" />
+                <label for="iccRadius">Corner radius <output id="iccRadiusOut">0.00 mm</output></label>
+                <input type="range" id="iccRadius" min="0" max="120" step="1" value="0" />
               </div>
               <div class="field field--check">
                 <input type="checkbox" id="iccGuides" checked />
@@ -635,9 +635,12 @@
               <div class="ws-note">
                 <strong>Yeh sirf cropper hai, card maker nahi.</strong>
                 Yeh aapke paas maujood card ki <em>photo</em> ko theek size me
-                kaata hai taaki aap use print kar sakein. Ismein naam, ID
-                number ya koi emblem field nahi hai — nayi ya nakli Government
-                ID banana illegal hai aur yeh tool wo karne me madad nahi karta.
+                kaata hai taaki aap use print kar sakein. Card poora na dikhe
+                to <strong>Zoom 25% tak kam</strong> karke dekhein, aur
+                <strong>Corner radius 0</strong> par kone bilkul nahi katenge.
+                Ismein naam, ID number ya koi emblem field nahi hai — nayi ya
+                nakli Government ID banana illegal hai aur yeh tool wo karne
+                me madad nahi karta.
               </div>
               <p class="ws-hint" id="iccHint">Crop theek karne ke liye sliders ya “Auto-detect” use karein.</p>
             </div>
@@ -660,7 +663,7 @@
                   </div>
                   <div class="field">
                     <label for="iccFZoom">Zoom <output id="iccFZoomOut">100%</output></label>
-                    <input type="range" id="iccFZoom" min="100" max="400" value="100" />
+                    <input type="range" id="iccFZoom" min="25" max="400" value="100" />
                   </div>
                   <div class="field">
                     <label for="iccFDx">Left / Right</label>
@@ -686,7 +689,7 @@
                   </div>
                   <div class="field">
                     <label for="iccBZoom">Zoom <output id="iccBZoomOut">100%</output></label>
-                    <input type="range" id="iccBZoom" min="100" max="400" value="100" />
+                    <input type="range" id="iccBZoom" min="25" max="400" value="100" />
                   </div>
                   <div class="field">
                     <label for="iccBDx">Left / Right</label>
